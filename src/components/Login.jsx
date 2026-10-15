@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { login } from "../api/client";
 
 function Login({ users = [], onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!username || !password) {
@@ -13,19 +14,13 @@ function Login({ users = [], onLogin }) {
       return;
     }
 
-    const user = users.find(
-      (account) =>
-        account.username === username &&
-        account.password === password
-    );
-
-    if (!user) {
-      setError("Invalid username or password.");
-      return;
+    try {
+      const user = await login(username, password);
+      setError("");
+      onLogin(user);
+    } catch (err) {
+      setError(err.status === 401 ? "Invalid username or password." : err.message);
     }
-
-    setError("");
-    onLogin(user);
   };
 
   return (

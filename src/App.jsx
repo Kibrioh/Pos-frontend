@@ -1,3 +1,4 @@
+import { apiFetch } from "./api/client";
 import Login from "./components/Login";
 import ManagerDashboard from "./components/ManagerDashboard";
 import ManagerNav from "./components/ManagerNav";
@@ -119,24 +120,8 @@ function App() {
     use them instead of fetching fresh data.
   */
   useEffect(() => {
-    const savedProducts =
-      localStorage.getItem("techpoint-products");
-
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-      setLoading(false);
-      return;
-    }
-
     getProducts()
-      .then((data) => {
-        setProducts(data);
-
-        localStorage.setItem(
-          "techpoint-products",
-          JSON.stringify(data)
-        );
-      })
+      .then((data) => setProducts(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -536,119 +521,79 @@ function App() {
   /*
     COMPLETE SALE
   */
-  const completeSale = () => {
+  const completeSale = async () => {
     if (cart.length === 0) {
       return;
     }
 
-    const stockProblem =
-      cart.find((item) => {
-        const currentProduct =
-          products.find(
-            (product) =>
-              product.id === item.id
-          );
+    let serverSale;
 
-        return (
-          !currentProduct ||
-          item.quantity >
-            currentProduct.stock
-        );
+    try {
+      serverSale = await apiFetch("/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          payment_method: "cash",
+          items: cart.map((item) => ({
+            product_id: Number(item.id),
+            quantity: item.quantity,
+          })),
+        }),
       });
-
-    if (stockProblem) {
-      window.alert(
-        "The sale cannot be completed because one or more products do not have enough stock."
-      );
-
+    } catch (err) {
+      window.alert(err.message);
       return;
     }
 
-    const total = cart.reduce(
-      (sum, item) =>
-        sum +
-        item.price *
-          item.quantity,
-      0
-    );
-
     const completedSale = {
-      id: Date.now(),
+      id: serverSale.id,
 
-      cashier:
-        currentUser.username,
+      cashier: currentUser.username,
 
-      items: cart.map((item) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
+      items: serverSale.items.map((item) => ({
+        id: item.product_id,
+        title: item.product_title,
+        price: Number(item.unit_price),
         quantity: item.quantity,
       })),
 
-      total,
+      total: Number(serverSale.total_amount),
 
-      itemCount: cart.reduce(
-        (sum, item) =>
-          sum + item.quantity,
+      itemCount: serverSale.items.reduce(
+        (sum, item) => sum + item.quantity,
         0
       ),
 
-      completedAt:
-        new Date().toISOString(),
+      completedAt: serverSale.created_at,
     };
 
     /*
-      Reduce stock.
+      Reduce stock on screen, using what the server sold.
     */
-    setProducts(
-      (currentProducts) =>
-        currentProducts.map(
-          (product) => {
-            const soldItem =
-              cart.find(
-                (item) =>
-                  item.id ===
-                  product.id
-              );
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        const soldItem = serverSale.items.find(
+          (item) => item.product_id === product.id
+        );
 
-            if (!soldItem) {
-              return product;
-            }
+        if (!soldItem) {
+          return product;
+        }
 
-            return {
-              ...product,
-
-              stock:
-                product.stock -
-                soldItem.quantity,
-            };
-          }
-        )
+        return {
+          ...product,
+          stock: product.stock - soldItem.quantity,
+        };
+      })
     );
 
-    /*
-      Save receipt.
-    */
     setSale(completedSale);
 
-    /*
-      Save sale for manager.
-    */
-    setSessionSales((sales) => [
-      ...sales,
-      completedSale,
-    ]);
+    setSessionSales((sales) => [...sales, completedSale]);
 
-    /*
-      Clear only current cashier's cart.
-    */
     dispatch({
       type: "CLEAR",
     });
 
-    /*
-      Scroll to receipt.
-    */
     setTimeout(() => {
       receiptRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -656,6 +601,51 @@ function App() {
       });
     }, 100);
   };
+
+  /*
+    MANAGER: load all sales from the backend.
+  */
+  useEffect(() => {
+    if (currentUser?.role !== "manager") {
+      return;
+    }
+
+    Promise.all([
+      apiFetch("/sales"),
+      apiFetch("/reports/sales-by-cashier"),
+    ])
+      .then(([salesData, cashierData]) => {
+        const names = {};
+        (cashierData.results || []).forEach((c) => {
+          names[c.user_id] = c.username;
+        });
+
+        const list = Array.isArray(salesData) ? salesData : [];
+
+        setSessionSales(
+          list
+            .slice()
+            .reverse()
+            .map((sale) => ({
+              id: sale.id,
+              cashier: names[sale.user_id] || `user ${sale.user_id}`,
+              items: sale.items.map((item) => ({
+                id: item.product_id,
+                title: item.product_title,
+                price: Number(item.unit_price),
+                quantity: item.quantity,
+              })),
+              total: Number(sale.total_amount),
+              itemCount: sale.items.reduce(
+                (sum, item) => sum + item.quantity,
+                0
+              ),
+              completedAt: sale.created_at,
+            }))
+        );
+      })
+      .catch((err) => console.error("Could not load sales:", err.message));
+  }, [currentUser]);
 
   /*
     PRODUCT DETAILS

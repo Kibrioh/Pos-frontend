@@ -1,41 +1,37 @@
-const API_URL = "https://dummyjson.com/products";
+import { apiFetch } from "./client";
+
 const POS_PRODUCT_CATEGORIES = new Set([
   "smartphones",
   "laptops",
   "mobile-accessories",
 ]);
 
-export async function getProducts() {
-  const response = await fetch(`${API_URL}?limit=0`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch products");
-  }
-
-  const data = await response.json();
-
-  return data.products.filter((product) =>
-    POS_PRODUCT_CATEGORIES.has(String(product.category).toLowerCase())
-  );
+// Backend product -> the shape the pages already use
+function toFrontendProduct(p) {
+  return {
+    ...p,
+    stock: p.stock_quantity,
+    price: Number(p.price),
+    category: String(p.category || "").toLowerCase(),
+  };
 }
 
-export async function getProductById(id) {
-  const response = await fetch(`${API_URL}/${id}`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch product");
-  }
-
-  return response.json();
+function toList(data) {
+  if (Array.isArray(data)) return data;
+  return data?.products || data?.data || [];
 }
 
 export async function getAllProducts() {
-  const response = await fetch(`${API_URL}?limit=0`);
+  const data = await apiFetch("/products");
+  return toList(data).map(toFrontendProduct);
+}
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch products");
-  }
+export async function getProducts() {
+  const all = await getAllProducts();
+  return all.filter((product) => POS_PRODUCT_CATEGORIES.has(product.category));
+}
 
-  const data = await response.json();
-  return data.products;
+export async function getProductById(id) {
+  const data = await apiFetch(`/products/${id}`);
+  return toFrontendProduct(data?.product || data?.data || data);
 }
