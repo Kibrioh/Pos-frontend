@@ -832,6 +832,55 @@ save(
   };
 
   /*
+    MANAGER: load all sales from the backend.
+  */
+  useEffect(() => {
+    if (currentUser?.role !== "manager") {
+      return;
+    }
+
+    Promise.all([
+      apiFetch("/sales"),
+      apiFetch("/reports/sales-by-cashier"),
+    ])
+      .then(([salesData, cashierData]) => {
+        const names = {};
+        (cashierData.results || []).forEach((c) => {
+          names[c.user_id] = c.username;
+        });
+
+        const list = Array.isArray(salesData) ? salesData : [];
+
+        setSessionSales(
+          list
+            .slice()
+            .reverse()
+            .map((sale) => ({
+              id: sale.id,
+              cashier: names[sale.user_id] || `user ${sale.user_id}`,
+              items: sale.items.map((item) => ({
+                id: item.product_id,
+                title: item.product_title,
+                price: Number(item.unit_price),
+                quantity: item.quantity,
+              })),
+              total: sale.items.reduce(
+                (sum, item) =>
+                  sum + toKsh(item.unit_price) * item.quantity,
+                0
+              ),
+              itemCount: sale.items.reduce(
+                (sum, item) => sum + item.quantity,
+                0
+              ),
+              completedAt: sale.created_at,
+            }))
+        );
+      })
+      .catch((err) => console.error("Could not load sales:", err.message));
+  }, [currentUser]);
+
+  /*
     PRODUCT DETAILS
   */
   const handleViewDetails = (
