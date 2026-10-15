@@ -1,4 +1,3 @@
-import { apiFetch } from "./api/client";
 import Login from "./components/Login";
 import ManagerDashboard from "./components/ManagerDashboard";
 import ManagerNav from "./components/ManagerNav";
@@ -6,6 +5,7 @@ import ManagerSales from "./components/ManagerSales";
 import ManagerProducts from "./components/ManagerProducts";
 import ManagerCashiers from "./components/ManagerCashiers";
 import About from "./components/About";
+import Tabs from "./components/Tabs";
 
 import {
   BrowserRouter,
@@ -20,17 +20,49 @@ import {
   useMemo,
   useState,
   useRef,
+  useReducer,
 } from "react";
 
 import { getProducts } from "./api/products";
+import { apiFetch, clearToken } from "./api/client";
 import { cartReducer } from "./cart/cartReducer";
-import { formatKsh } from "./utils/formatPrice";
+import {
+  formatKsh,
+  toKsh,
+} from "./utils/formatPrice";
+
+import {
+  saleId,
+  orderId,
+  receiptNumber,
+} from "./utils/id";
+
+import {
+  makeSaleEntriesForCart,
+} from "./utils/ledger";
+
+import {
+  downloadReceiptText,
+} from "./utils/receiptText";
+
+import {
+  load,
+  save,
+  KEYS,
+} from "./utils/storage";
+
+import {
+  initialTabsState,
+  tabsReducer,
+} from "./tabs/tabsReducer";
 
 import ProductList from "./components/ProductList";
 import ProductDetails from "./components/ProductDetails";
 import SearchBar from "./components/SearchBar";
 import CategoryFilter from "./components/CategoryFilter";
 import Cart from "./components/Cart";
+import { filterProducts } from "./utils/filterProducts";
+import { useDebounce } from "./hooks/useDebounce";
 
 function App() {
   const navigate = useNavigate();
@@ -148,7 +180,13 @@ function App() {
     useState({});
 
   const [heldCarts, setHeldCarts] = useState([]);
-  const [sale, setSale] = useState(null);
+const [sale, setSale] = useState(null);
+const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [tabsState, tabsDispatch] =
+  useReducer(
+    tabsReducer,
+    initialTabsState
+  );
   const [sessionSales, setSessionSales] =
     useState([]);
 
@@ -190,26 +228,118 @@ function App() {
     ? cashierCarts[currentUser.username] ?? []
     : [];
 
+    const activeTab =
+  tabsState.tabs.find(
+    (tab) =>
+      tab.id ===
+      tabsState.activeTabId
+  ) ?? null;
+
+    const createNewTab = () => {
+    tabsDispatch({
+      type: "ADD_TAB",
+      tab: {
+        name: `Tab ${tabsState.tabs.length + 1}`,
+        items: [],
+      },
+    });
+
+    if (currentUser) {
+      setCashierCarts((carts) => ({
+        ...carts,
+        [currentUser.username]: [],
+      }));
+    }
+  };
+
+  const switchTab = (tabId) => {
+    if (!currentUser) {
+      return;
+    }
+
+    const selectedTab =
+      tabsState.tabs.find(
+        (tab) => tab.id === tabId
+      );
+
+    if (!selectedTab) {
+      return;
+    }
+
+    setCashierCarts((carts) => ({
+      ...carts,
+      [currentUser.username]:
+        selectedTab.items ?? [],
+    }));
+
+    tabsDispatch({
+      type: "SET_ACTIVE_TAB",
+      id: tabId,
+    });
+  };
+
+  const closeTab = (tabId) => {
+    const tab =
+      tabsState.tabs.find(
+        (item) => item.id === tabId
+      );
+
+    if (!tab) {
+      return;
+    }
+
+    if (tab.items.length > 0) {
+      const confirmed =
+        window.confirm(
+          `${tab.name} contains items. Close it anyway?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    tabsDispatch({
+      type: "REMOVE_TAB",
+      id: tabId,
+    });
+  };
+
   /*
     Apply cartReducer to the current
     cashier's cart.
   */
   const dispatch = (action) => {
-    if (!currentUser) {
-      return;
+  if (!currentUser) {
+    return;
+  }
+
+  const username = currentUser.username;
+
+  setCashierCarts((carts) => {
+    const currentCart =
+      carts[username] ?? [];
+
+    const nextCart =
+      cartReducer(
+        currentCart,
+        action
+      );
+
+    if (tabsState.activeTabId) {
+      tabsDispatch({
+        type: "SET_TAB_ITEMS",
+        id: tabsState.activeTabId,
+        items: nextCart,
+      });
     }
 
-    const username = currentUser.username;
-
-    setCashierCarts((carts) => ({
+    return {
       ...carts,
-
-      [username]: cartReducer(
-        carts[username] ?? [],
-        action
-      ),
-    }));
-  };
+      [username]: nextCart,
+    };
+  });
+};
 
   /*
     LOGIN
@@ -221,6 +351,18 @@ function App() {
       [user.username]:
         carts[user.username] ?? [],
     }));
+
+   if (user.role === "cashier") {
+  if (tabsState.tabs.length === 0) {
+    tabsDispatch({
+      type: "ADD_TAB",
+      tab: {
+        name: "Tab 1",
+        items: [],
+      },
+    });
+  }
+}
 
     setCurrentUser(user);
     setSale(null);
@@ -241,9 +383,10 @@ function App() {
   const handleSwitchUser = () => {
     setSale(null);
     setSelectedProduct(null);
-    setSearch("");
+    setSearchInput("");
     setCategory("all");
     setView("home");
+    clearToken();
     setCurrentUser(null);
 
     navigate("/");
@@ -316,56 +459,23 @@ function App() {
   /*
     Search and filter
   */
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const search = useDebounce(searchInput, 300);
   const [category, setCategory] =
     useState("all");
 
-  const filteredProducts = useMemo(() => {
-    const query =
-      search.trim().toLowerCase();
+   const filteredProducts = useMemo(() => {
+    const matches = filterProducts(products, search, category);
 
-    return products.filter((product) => {
-      const matchesCategory =
-        category === "all" ||
-        product.category === category;
+    if (view !== "low-stock") return matches;
 
-      const matchesSearch =
-        !query ||
-        product.title
-          .toLowerCase()
-          .includes(query) ||
-        product.brand
-          ?.toLowerCase()
-          .includes(query) ||
-        product.category
-          .toLowerCase()
-          .includes(query);
-
+    return matches.filter((product) => {
       const quantityInCart =
-        cart.find(
-          (item) => item.id === product.id
-        )?.quantity ?? 0;
+        cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
-      const matchesStock =
-        view !== "low-stock" ||
-        (product.stock > 0 &&
-          product.stock -
-            quantityInCart <=
-            10);
-
-      return (
-        matchesCategory &&
-        matchesSearch &&
-        matchesStock
-      );
+      return product.stock > 0 && product.stock - quantityInCart <= 10;
     });
-  }, [
-    products,
-    search,
-    category,
-    view,
-    cart,
-  ]);
+  }, [products, search, category, view, cart]);
 
   /*
     Low-stock count
@@ -414,25 +524,27 @@ function App() {
   /*
     Navigation
   */
-  const clearFilters = () => {
-    setSearch("");
+    const clearFilters = () => {
+    setSearchInput("");
     setCategory("all");
     setView("products");
     navigate("/cashier/products");
   };
 
   const navigateTo = (nextView) => {
-    setSearch("");
+    setSearchInput("");
     setCategory("all");
     setSelectedProduct(null);
     setView(nextView);
 
     const routes = {
-      home: "/",
-      products: "/cashier/products",
-      categories: "/cashier/categories",
-      "low-stock": "/cashier/low-stock",
-    };
+  home: "/",
+  products: "/cashier/products",
+  categories: "/cashier/categories",
+  orders: "/cashier/orders",
+   ledger: "/cashier/ledger",
+  "low-stock": "/cashier/low-stock",
+};
 
     navigate(routes[nextView] || "/");
   };
@@ -526,13 +638,35 @@ function App() {
       return;
     }
 
+    const stockProblem =
+      cart.find((item) => {
+        const currentProduct =
+          products.find(
+            (product) =>
+              product.id === item.id
+          );
+
+        return (
+          !currentProduct ||
+          item.quantity >
+            currentProduct.stock
+        );
+      });
+
+    if (stockProblem) {
+      window.alert(
+        "The sale cannot be completed because one or more products do not have enough stock."
+      );
+
+      return;
+    }
     let serverSale;
 
     try {
       serverSale = await apiFetch("/sales", {
         method: "POST",
         body: JSON.stringify({
-          payment_method: "cash",
+          payment_method: paymentMethod,
           items: cart.map((item) => ({
             product_id: Number(item.id),
             quantity: item.quantity,
@@ -544,56 +678,151 @@ function App() {
       return;
     }
 
-    const completedSale = {
-      id: serverSale.id,
+    const serverPrices = {};
+    serverSale.items.forEach((item) => {
+      serverPrices[item.product_id] = Number(item.unit_price);
+    });
 
-      cashier: currentUser.username,
+    const billedCart = cart.map((item) => ({
+      ...item,
+      price: serverPrices[Number(item.id)] ?? item.price,
+    }));
 
-      items: serverSale.items.map((item) => ({
-        id: item.product_id,
-        title: item.product_title,
-        price: Number(item.unit_price),
-        quantity: item.quantity,
-      })),
+    const subtotalKsh = billedCart.reduce(
+  (sum, item) =>
+    sum +
+    toKsh(item.price) * item.quantity,
+  0
+);
 
-      total: Number(serverSale.total_amount),
+const totalKsh = subtotalKsh;
 
-      itemCount: serverSale.items.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      ),
+const completedSale = {
+  id: saleId(),
+  orderId: orderId(),
+  receiptNumber: receiptNumber(),
+  createdAt: Date.now(),
 
-      completedAt: serverSale.created_at,
-    };
+  cashier: {
+    name: currentUser.username,
+  },
+
+  items: billedCart.map((item) => ({
+    id: item.id,
+    title: item.title,
+    price: item.price,
+    quantity: item.quantity,
+    lineTotalKsh:
+      toKsh(item.price) * item.quantity,
+  })),
+
+  subtotalKsh,
+  totalKsh,
+
+  paymentMethod,
+
+  itemCount: cart.reduce(
+    (sum, item) =>
+      sum + item.quantity,
+    0
+  ),
+};
+
+const ledgerEntries = makeSaleEntriesForCart({
+  items: cart,
+  products,
+  user: currentUser.username,
+  at: completedSale.createdAt,
+});
 
     /*
-      Reduce stock on screen, using what the server sold.
+      Reduce stock.
     */
-    setProducts((currentProducts) =>
-      currentProducts.map((product) => {
-        const soldItem = serverSale.items.find(
-          (item) => item.product_id === product.id
-        );
+    setProducts(
+      (currentProducts) =>
+        currentProducts.map(
+          (product) => {
+            const soldItem =
+              cart.find(
+                (item) =>
+                  item.id ===
+                  product.id
+              );
 
-        if (!soldItem) {
-          return product;
-        }
+            if (!soldItem) {
+              return product;
+            }
 
-        return {
-          ...product,
-          stock: product.stock - soldItem.quantity,
-        };
-      })
+            return {
+              ...product,
+
+              stock:
+                product.stock -
+                soldItem.quantity,
+            };
+          }
+        )
     );
 
+    /*
+      Save receipt.
+    */
     setSale(completedSale);
 
-    setSessionSales((sales) => [...sales, completedSale]);
+    /*
+      Save sale for manager.
+    */
+    setSessionSales((sales) => [
+      ...sales,
+      completedSale,
+    ]);
 
+    const existingOrders = load(
+  KEYS.ORDERS,
+  []
+);
+
+save(
+  KEYS.ORDERS,
+  [
+    ...existingOrders,
+    completedSale,
+  ]
+);
+
+    /*
+  Save ledger entries.
+*/
+const existingLedger = load(
+  KEYS.LEDGER,
+  []
+);
+
+save(
+  KEYS.LEDGER,
+  [
+    ...existingLedger,
+    ...ledgerEntries,
+  ]
+);
+
+    /*
+      Clear only current cashier's cart.
+    */
     dispatch({
       type: "CLEAR",
     });
 
+    if (tabsState.activeTabId) {
+  tabsDispatch({
+    type: "REMOVE_TAB",
+    id: tabsState.activeTabId,
+  });
+}
+
+    /*
+      Scroll to receipt.
+    */
     setTimeout(() => {
       receiptRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -601,51 +830,6 @@ function App() {
       });
     }, 100);
   };
-
-  /*
-    MANAGER: load all sales from the backend.
-  */
-  useEffect(() => {
-    if (currentUser?.role !== "manager") {
-      return;
-    }
-
-    Promise.all([
-      apiFetch("/sales"),
-      apiFetch("/reports/sales-by-cashier"),
-    ])
-      .then(([salesData, cashierData]) => {
-        const names = {};
-        (cashierData.results || []).forEach((c) => {
-          names[c.user_id] = c.username;
-        });
-
-        const list = Array.isArray(salesData) ? salesData : [];
-
-        setSessionSales(
-          list
-            .slice()
-            .reverse()
-            .map((sale) => ({
-              id: sale.id,
-              cashier: names[sale.user_id] || `user ${sale.user_id}`,
-              items: sale.items.map((item) => ({
-                id: item.product_id,
-                title: item.product_title,
-                price: Number(item.unit_price),
-                quantity: item.quantity,
-              })),
-              total: Number(sale.total_amount),
-              itemCount: sale.items.reduce(
-                (sum, item) => sum + item.quantity,
-                0
-              ),
-              completedAt: sale.created_at,
-            }))
-        );
-      })
-      .catch((err) => console.error("Could not load sales:", err.message));
-  }, [currentUser]);
 
   /*
     PRODUCT DETAILS
@@ -871,6 +1055,46 @@ function App() {
           >
             Products
           </button>
+
+          <button
+            className={`app-nav-button${
+              view === "orders"
+                ? " is-active"
+                : ""
+            }`}
+            type="button"
+            aria-current={
+              view === "orders"
+                ? "page"
+                : undefined
+            }
+            onClick={() =>
+              navigateTo(
+                "orders"
+              )
+            }
+          >
+            Orders
+          </button>
+
+          <button
+  className={`app-nav-button${
+    view === "ledger"
+      ? " is-active"
+      : ""
+  }`}
+  type="button"
+  aria-current={
+    view === "ledger"
+      ? "page"
+      : undefined
+  }
+  onClick={() =>
+    navigateTo("ledger")
+  }
+>
+  Ledger
+</button>
 
           <button
             className={`app-nav-button${
@@ -1213,7 +1437,7 @@ function App() {
                   sold for{" "}
                   <strong>
                     {formatKsh(
-                      latestSale.total
+                      latestSale.totalKsh
                     )}
                   </strong>
                   {" · "}
@@ -1391,8 +1615,267 @@ function App() {
             )}
           </section>
         </main>
+              ) : view === "orders" ? (
+        <main className="main-content">
+          <section className="catalogue">
+            <div className="catalogue-heading">
+              <div>
+                <p className="section-kicker">
+                  SALES HISTORY
+                </p>
+
+                <h1>
+                  Orders
+                </h1>
+
+                <p>
+                  View completed sales and
+                  order details.
+                </p>
+              </div>
+            </div>
+
+            {load(KEYS.ORDERS, []).length === 0 ? (
+              <div className="catalogue-message">
+                <h2>
+                  No orders yet
+                </h2>
+
+                <p>
+                  Completed sales will
+                  appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="orders-list">
+                {load(KEYS.ORDERS, [])
+                  .slice()
+                  .reverse()
+                  .map((order) => (
+                    <article
+                      key={order.id}
+                      className="order-card"
+                    >
+                      <div>
+                        <p className="section-kicker">
+                          {order.receiptNumber}
+                        </p>
+
+                        <h2>
+                          {order.orderId}
+                        </h2>
+
+                        <p>
+                          Cashier:{" "}
+                          {order.cashier?.name ??
+                            order.cashier}
+                        </p>
+
+                        <p>
+                          {new Date(
+                            order.createdAt
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>
+                          {formatKsh(
+                            order.totalKsh
+                          )}
+                        </strong>
+
+                        <p>
+                          {order.itemCount} item(s)
+                        </p>
+
+                        <p>
+                          Paid via:{" "}
+                          {order.paymentMethod}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            )}
+          </section>
+        </main>
+      ) : view === "orders" ? (
+        <main className="main-content">
+          <section className="catalogue">
+            <div className="catalogue-heading">
+              <div>
+                <p className="section-kicker">
+                  SALES HISTORY
+                </p>
+
+                <h1>
+                  Orders
+                </h1>
+
+                <p>
+                  View completed sales and
+                  order details.
+                </p>
+              </div>
+            </div>
+
+            {load(KEYS.ORDERS, []).length === 0 ? (
+              <div className="catalogue-message">
+                <h2>
+                  No orders yet
+                </h2>
+
+                <p>
+                  Completed sales will
+                  appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="orders-list">
+                {load(KEYS.ORDERS, [])
+                  .slice()
+                  .reverse()
+                  .map((order) => (
+                    <article
+                      key={order.id}
+                      className="order-card"
+                    >
+                      <div>
+                        <p className="section-kicker">
+                          {order.receiptNumber}
+                        </p>
+
+                        <h2>
+                          {order.orderId}
+                        </h2>
+
+                        <p>
+                          Cashier:{" "}
+                          {order.cashier?.name ??
+                            order.cashier}
+                        </p>
+
+                        <p>
+                          {new Date(
+                            order.createdAt
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>
+                          {formatKsh(
+                            order.totalKsh
+                          )}
+                        </strong>
+
+                        <p>
+                          {order.itemCount} item(s)
+                        </p>
+
+                        <p>
+                          Paid via:{" "}
+                          {order.paymentMethod}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            )}
+          </section>
+        </main>
+            ) : view === "ledger" ? (
+        <main className="main-content">
+          <section className="catalogue">
+            <div className="catalogue-heading">
+              <div>
+                <p className="section-kicker">
+                  STOCK LEDGER
+                </p>
+
+                <h1>
+                  Ledger
+                </h1>
+
+                <p>
+                  Track stock movements from completed sales.
+                </p>
+              </div>
+            </div>
+
+            {load(KEYS.LEDGER, []).length === 0 ? (
+              <div className="catalogue-message">
+                <h2>
+                  No ledger entries yet
+                </h2>
+
+                <p>
+                  Stock movements will appear here after sales are completed.
+                </p>
+              </div>
+            ) : (
+              <div className="orders-list">
+                {load(KEYS.LEDGER, [])
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <article
+                      key={entry.id}
+                      className="order-card"
+                    >
+                      <div>
+                        <p className="section-kicker">
+                          {entry.type?.toUpperCase()}
+                        </p>
+
+                        <h2>
+                          {entry.productTitle}
+                        </h2>
+
+                        <p>
+                          Cashier: {entry.user}
+                        </p>
+
+                        <p>
+                          {new Date(
+                            entry.createdAt
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>
+                          {entry.quantity} unit(s)
+                        </strong>
+
+                        <p>
+                          Stock before: {entry.before}
+                        </p>
+
+                        <p>
+                          Stock after: {entry.after}
+                        </p>
+
+                        <p>
+                          Change: {entry.delta}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            )}
+          </section>
+        </main>
       ) : (
         <main className="main-content">
+          <Tabs
+  tabs={tabsState.tabs}
+  activeTabId={tabsState.activeTabId}
+  onSelect={switchTab}
+  onAdd={createNewTab}
+  onRemove={closeTab}
+/>
           <section
             className="catalogue"
             aria-labelledby="catalogue-title"
@@ -1439,73 +1922,102 @@ function App() {
                 </h2>
 
                 <div className="receipt">
-                  <h3>
-                    TECHPOINT RECEIPT
-                  </h3>
+  <h3>
+    TECHPOINT RECEIPT
+  </h3>
 
-                  <p>
-                    <strong>
-                      Cashier:
-                    </strong>{" "}
-                    {sale.cashier}
-                  </p>
+  <p>
+    <strong>Receipt:</strong>{" "}
+    {sale.receiptNumber}
+  </p>
 
-                  <p>
-                    <strong>Date:</strong>{" "}
-                    {new Date(
-                      sale.completedAt
-                    ).toLocaleString()}
-                  </p>
+  <p>
+    <strong>Order:</strong>{" "}
+    {sale.orderId}
+  </p>
 
-                  <hr />
+  <p>
+    <strong>Cashier:</strong>{" "}
+    {sale.cashier?.name ?? sale.cashier}
+  </p>
 
-                  {sale.items.map(
-                    (item) => (
-                      <div
-                        key={item.id}
-                        className="receipt-item"
-                      >
-                        <div>
-                          <strong>
-                            {
-                              item.title
-                            }
-                          </strong>
+  <p>
+    <strong>Date:</strong>{" "}
+    {new Date(
+      sale.createdAt
+    ).toLocaleString()}
+  </p>
 
-                          <p>
-                            {
-                              item.quantity
-                            }{" "}
-                            ×{" "}
-                            {formatKsh(
-                              item.price
-                            )}
-                          </p>
-                        </div>
+  <hr />
 
-                        <strong>
-                          {formatKsh(
-                            item.price *
-                              item.quantity
-                          )}
-                        </strong>
-                      </div>
-                    )
-                  )}
+  {sale.items.map((item) => (
+    <div
+      key={item.id}
+      className="receipt-item"
+    >
+      <div>
+        <strong>
+          {item.title}
+        </strong>
 
-                  <hr />
+        <p>
+          {item.quantity} ×{" "}
+          {formatKsh(
+            toKsh(item.price)
+          )}
+        </p>
+      </div>
 
-                  <div className="receipt-total">
-                    <strong>
-                      TOTAL
-                    </strong>
+      <strong>
+        {formatKsh(
+          item.lineTotalKsh ??
+            toKsh(item.price) *
+              item.quantity
+        )}
+      </strong>
+    </div>
+  ))}
 
-                    <strong>
-                      {formatKsh(
-                        sale.total
-                      )}
-                    </strong>
-                  </div>
+  <hr />
+
+  <div className="receipt-total">
+    <strong>
+      TOTAL
+    </strong>
+
+    <strong>
+      {formatKsh(
+        sale.totalKsh
+      )}
+    </strong>
+  </div>
+
+  <p>
+    <strong>Payment:</strong>{" "}
+    {sale.paymentMethod}
+  </p>
+</div>
+
+                <div className="receipt-actions">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.print()
+                    }
+                  >
+                    Print Receipt
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadReceiptText(
+                        sale
+                      )
+                    }
+                  >
+                    Download Receipt
+                  </button>
                 </div>
 
                 <p className="sale-success-message">
@@ -1525,8 +2037,8 @@ function App() {
 
             <div className="catalogue-controls">
               <SearchBar
-                value={search}
-                onChange={setSearch}
+                value={searchInput}
+                onChange={setSearchInput}
               />
 
               <CategoryFilter
@@ -1714,6 +2226,31 @@ function App() {
                     }
                   />
                 </div>
+                <div className="payment-method-selector">
+  <label htmlFor="payment-method">
+    Payment Method
+  </label>
+
+  <select
+    id="payment-method"
+    value={paymentMethod}
+    onChange={(event) =>
+      setPaymentMethod(event.target.value)
+    }
+  >
+    <option value="Cash">
+      Cash
+    </option>
+
+    <option value="Card">
+      Card
+    </option>
+
+    <option value="M-Pesa">
+      M-Pesa
+    </option>
+  </select>
+</div>
 
                 <Cart
                   items={cart}

@@ -36,14 +36,14 @@ Every feature in this project exists to serve one of those eight points.
 | Cart & sale calculation | Done |
 | Sale completion & confirmation | Done |
 | Utility suite (shared helpers) | Done |
-| Authentication & roles (simulated) | In progress |
-| Dashboard / home | In progress |
+| Authentication & roles (simulated) | Done |
+| Dashboard / home | Done |
 | POS tabs (multi-customer) | In progress |
 | Receipt printing | In progress |
-| Stock management & restock | In progress |
-| Stock ledger | In progress |
-| Orders history | In progress |
-| Reports | In progress |
+| Stock management & restock | Done |
+| Stock ledger | Done |
+| Orders history | Done |
+| Reports | Done |
 | Settings | In progress |
 | Responsive polish | In progress |
 
@@ -140,8 +140,9 @@ Demo logins (Phase 1 — simulated):
 
 | Role | Username | Password |
 |------|----------|----------|
-| Admin | admin | admin |
-| Cashier | cashier | cashier |
+| Admin | manager | man123 |
+| Cashier1 | cashier | cash123 |
+| Cashier2 | cashier2 | cash123 |
 
 ## Other scripts
 
@@ -166,7 +167,7 @@ Demo logins (Phase 1 — simulated):
     ├── package.json
     └── vite.config.js
 
-## Shared utilities (Member 6)
+## Shared utilities
 
 All modules under src/utils/ are pure, tested helpers used across the app.
 
@@ -205,12 +206,12 @@ reporting.
 
 | # | Name | Role |
 |---|------|------|
-| 1 | | Scrum Master / API, Auth, Dashboard |
-| 2 | | Product Catalogue & Stock Management |
-| 3 | | Search & Filtering |
-| 4 | | Cart, Tabs, Sale, Ledger, Receipt |
-| 5 | | UI/UX, Navigation, Reports, Settings |
-| 6 | | Testing, Documentation & Shared Utilities |
+| 1 | Sylvans | Scrum Master / API, Auth, Dashboard |
+| 2 | Brian   | Product Catalogue & Stock Management |
+| 3 | Mark    | Search & Filtering |
+| 4 | Oprah   | Cart, Tabs, Sale, Ledger, Receipt |
+| 5 | Prince  | UI/UX, Navigation, Reports, Settings |
+| 6 | Moses   | Testing, Documentation & Shared Utilities |
 
 ## Important decisions
 
