@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { getProducts } from "./api/products";
+import { apiFetch, clearToken } from "./api/client";
 import { cartReducer } from "./cart/cartReducer";
 import {
   formatKsh,
@@ -151,24 +152,8 @@ function App() {
     use them instead of fetching fresh data.
   */
   useEffect(() => {
-    const savedProducts =
-      localStorage.getItem("techpoint-products");
-
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-      setLoading(false);
-      return;
-    }
-
     getProducts()
-      .then((data) => {
-        setProducts(data);
-
-        localStorage.setItem(
-          "techpoint-products",
-          JSON.stringify(data)
-        );
-      })
+      .then((data) => setProducts(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -401,6 +386,7 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
     setSearchInput("");
     setCategory("all");
     setView("home");
+    clearToken();
     setCurrentUser(null);
 
     navigate("/");
@@ -647,7 +633,7 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
   /*
     COMPLETE SALE
   */
-  const completeSale = () => {
+  const completeSale = async () => {
     if (cart.length === 0) {
       return;
     }
@@ -674,8 +660,35 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
 
       return;
     }
+    let serverSale;
 
-   const subtotalKsh = cart.reduce(
+    try {
+      serverSale = await apiFetch("/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          payment_method: paymentMethod,
+          items: cart.map((item) => ({
+            product_id: Number(item.id),
+            quantity: item.quantity,
+          })),
+        }),
+      });
+    } catch (err) {
+      window.alert(err.message);
+      return;
+    }
+
+    const serverPrices = {};
+    serverSale.items.forEach((item) => {
+      serverPrices[item.product_id] = Number(item.unit_price);
+    });
+
+    const billedCart = cart.map((item) => ({
+      ...item,
+      price: serverPrices[Number(item.id)] ?? item.price,
+    }));
+
+    const subtotalKsh = billedCart.reduce(
   (sum, item) =>
     sum +
     toKsh(item.price) * item.quantity,
@@ -694,7 +707,7 @@ const completedSale = {
     name: currentUser.username,
   },
 
-  items: cart.map((item) => ({
+  items: billedCart.map((item) => ({
     id: item.id,
     title: item.title,
     price: item.price,

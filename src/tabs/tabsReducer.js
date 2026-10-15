@@ -1,4 +1,3 @@
-cat > src/tabs/tabsReducer.js <<'EOF'
 import { tabId } from "../utils/id.js";
 
 export const initialTabsState = {
@@ -86,4 +85,3 @@ export function tabsReducer(state, action) {
       return state;
   }
 }
-EOF
