@@ -1,3 +1,5 @@
+import { apiFetch } from "../api/client";
+import { getProducts } from "../api/products";
 import { useMemo, useState } from "react";
 import { formatPrice } from "../utils/formatPrice";
 
@@ -71,49 +73,54 @@ function ManagerProducts({
     category,
   ]);
 
-  const updateStock = (id, amount) => {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === id
-          ? {
-              ...product,
-              stock: Math.max(
-                product.stock + amount,
-                0
-              ),
-            }
-          : product
-      )
-    );
+  const reloadProducts = async () => {
+    setProducts(await getProducts());
   };
 
-  const makeOutOfStock = (id) => {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === id
-          ? {
-              ...product,
-              stock: 0,
-            }
-          : product
-      )
-    );
-  };
+  const updateStock = async (id, amount) => {
+    const product = products.find((item) => item.id === id);
 
-  const deleteProduct = (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to permanently delete this product?"
-    );
-
-    if (!confirmed) {
+    if (!product) {
       return;
     }
 
-    setProducts((currentProducts) =>
-      currentProducts.filter(
-        (product) => product.id !== id
-      )
-    );
+    const delta = Math.max(product.stock + amount, 0) - product.stock;
+
+    if (delta === 0) {
+      return;
+    }
+
+    try {
+      const me = await apiFetch("/auth/me");
+
+      await apiFetch("/stock/adjust", {
+        method: "POST",
+        body: JSON.stringify({
+          product_id: Number(id),
+          delta,
+          user_id: me.user.id,
+          note: "Manual adjustment by manager",
+        }),
+      });
+
+      await reloadProducts();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  };
+
+  const makeOutOfStock = (id) => {
+    const product = products.find((item) => item.id === id);
+
+    if (!product) {
+      return;
+    }
+
+    return updateStock(id, -product.stock);
+  };
+
+  const deleteProduct = () => {
+    window.alert("Deleting products is not supported by the backend yet.");
   };
 
   const startEditingPrice = (product) => {
@@ -121,26 +128,25 @@ function ManagerProducts({
     setNewPrice(product.price);
   };
 
-  const savePrice = (id) => {
+  const savePrice = async (id) => {
     const price = Number(newPrice);
 
     if (price <= 0 || Number.isNaN(price)) {
       return;
     }
 
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === id
-          ? {
-              ...product,
-              price,
-            }
-          : product
-      )
-    );
+    try {
+      await apiFetch(`/products/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ price }),
+      });
 
-    setEditingId(null);
-    setNewPrice("");
+      await reloadProducts();
+      setEditingId(null);
+      setNewPrice("");
+    } catch (err) {
+      window.alert(err.message);
+    }
   };
 
   const handleNewProductChange = (e) => {
@@ -152,7 +158,7 @@ function ManagerProducts({
     }));
   };
 
-  const addProduct = (e) => {
+  const addProduct = async (e) => {
     e.preventDefault();
 
     if (
@@ -163,33 +169,42 @@ function ManagerProducts({
       return;
     }
 
-    const product = {
-      id: Date.now(),
-      title: newProduct.title.trim(),
-      brand:
-        newProduct.brand.trim() || "TechPoint",
-      category: newProduct.category,
-      price: Number(newProduct.price),
-      stock: Number(newProduct.stock),
-      thumbnail:
-        "https://cdn.dummyjson.com/product-images/1/thumbnail.jpg",
-      description:
-        "Product added by the TechPoint manager.",
-      rating: 0,
-    };
+    try {
+      const data = await apiFetch("/categories");
+      const list = Array.isArray(data)
+        ? data
+        : data.categories || data.data || [];
+      const category = list.find((item) => item.name === newProduct.category);
 
-    setProducts((currentProducts) => [
-      ...currentProducts,
-      product,
-    ]);
+      if (!category) {
+        window.alert("That category was not found in the backend.");
+        return;
+      }
 
-    setNewProduct({
-      title: "",
-      brand: "",
-      category: "smartphones",
-      price: "",
-      stock: "",
-    });
+      await apiFetch("/products", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newProduct.title.trim(),
+          brand: newProduct.brand.trim() || "TechPoint",
+          category_id: category.id,
+          price: Number(newProduct.price),
+          stock_quantity: Number(newProduct.stock),
+          description: "Product added by the TechPoint manager.",
+        }),
+      });
+
+      await reloadProducts();
+
+      setNewProduct({
+        title: "",
+        brand: "",
+        category: "smartphones",
+        price: "",
+        stock: "",
+      });
+    } catch (err) {
+      window.alert(err.message);
+    }
   };
 
   const formatCategory = (value) => {
