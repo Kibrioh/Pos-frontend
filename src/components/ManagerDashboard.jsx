@@ -1,9 +1,22 @@
+import { useEffect, useState } from "react";
+import { apiFetch } from "../api/client";
+
 function ManagerDashboard({
   user,
   onLogout,
   products = [],
   sales = [],
 }) {
+  const [cashierCount, setCashierCount] = useState(null);
+
+  useEffect(() => {
+    apiFetch("/reports/dashboard")
+      .then((data) => setCashierCount(data.cashier_count))
+      .catch((err) =>
+        console.error("Could not load dashboard:", err.message)
+      );
+  }, []);
+
   const totalSales = sales.reduce(
     (total, sale) => total + sale.total,
     0
@@ -27,7 +40,7 @@ function ManagerDashboard({
 
           <div className="manager-card">
             <h3>Cashiers</h3>
-            <p>2</p>
+            <p>{cashierCount ?? "-"}</p>
           </div>
 
           <div className="manager-card">
