@@ -127,7 +127,7 @@
 
 .product-details {
   position: relative;
-  width: min(900px, 100%);
+  width: min(820px, 100%);
   max-height: min(760px, calc(100dvh - 48px));
   padding: 34px;
   overflow-y: auto;
@@ -173,9 +173,11 @@
 
 .product-details-image-frame {
   display: grid;
-  width: 100%;
-  height: min(54vh, 390px);
-  min-height: 270px;
+  width: min(100%, 300px);
+  aspect-ratio: 1;
+  height: auto;
+  min-height: 0;
+  justify-self: center;
   place-items: center;
   overflow: hidden;
   border: 1px solid #e8eeea;
@@ -364,8 +366,9 @@
   }
 
   .product-details-image-frame {
-    height: min(30vh, 240px);
-    min-height: 170px;
+    width: min(100%, 220px);
+    height: auto;
+    min-height: 0;
   }
 
   .product-details-image {
