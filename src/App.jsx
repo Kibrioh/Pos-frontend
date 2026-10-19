@@ -118,7 +118,6 @@ function App() {
   const [selectedProduct, setSelectedProduct] =
     useState(null);
 
-  const productDetailsRef = useRef(null);
 
   /*
     Keep the cashier view synchronized
@@ -878,20 +877,7 @@ function App() {
   /*
     PRODUCT DETAILS
   */
-  const handleViewDetails = (
-    product
-  ) => {
-    setSelectedProduct(product);
-
-    setTimeout(() => {
-      productDetailsRef.current?.scrollIntoView(
-        {
-          behavior: "smooth",
-          block: "start",
-        }
-      );
-    }, 100);
-  };
+  const handleViewDetails = (product) => setSelectedProduct(product);
 
   /*
     LOGIN SCREEN
@@ -2361,31 +2347,12 @@ function App() {
             )}
 
             {selectedProduct && (
-              <div
-                ref={
-                  productDetailsRef
-                }
-              >
-                <ProductDetails
-                  product={
-                    selectedProduct
-                  }
-                  onClose={() =>
-                    setSelectedProduct(
-                      null
-                    )
-                  }
-                  onAddToCart={(
-                    product
-                  ) =>
-                    dispatch({
-                      type: "ADD",
-                      product,
-                    })
-                  }
-                  readOnly={view === "low-stock"}
-                />
-              </div>
+              <ProductDetails
+                product={selectedProduct}
+                onClose={() => setSelectedProduct(null)}
+                onAddToCart={(product) => dispatch({ type: "ADD", product })}
+                readOnly={view === "low-stock"}
+              />
             )}
           </section>
         </main>
