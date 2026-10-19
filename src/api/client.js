@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
+const BASE_URL = "https://pos-backend-egns.onrender.com";
 const TOKEN_KEY = "techpoint_token";
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
