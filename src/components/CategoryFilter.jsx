@@ -11,11 +11,16 @@ function CategoryFilter({ categories, selected, onChange }) {
     >
       <option value="all">All categories</option>
 
-      {categories.map((category) => (
-        <option key={category} value={category}>
-          {label(category)}
-        </option>
-      ))}
+      {categories.map((category) => {
+        const value = typeof category === "string" ? category : category.name;
+        const key = typeof category === "string" ? category : category.id;
+
+        return (
+          <option key={key} value={value}>
+            {label(value)}
+          </option>
+        );
+      })}
     </select>
   );
 }

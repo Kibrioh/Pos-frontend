@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { login } from "../api/client";
 
-function Login({ users = [], onLogin }) {
+function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

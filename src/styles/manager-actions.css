@@ -1,0 +1,211 @@
+.manager-action-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.manager-action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.manager-action-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.manager-action-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.manager-action-button--primary {
+  border-color: #31583d;
+  background: linear-gradient(135deg, #3b6949, #2e543a);
+  color: #fff;
+  box-shadow: 0 4px 10px rgb(42 81 54 / 15%);
+}
+
+.manager-action-button--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #477955, #365f43);
+  box-shadow: 0 7px 15px rgb(42 81 54 / 20%);
+}
+
+.manager-action-button--secondary {
+  border-color: #d5ded4;
+  background: #fff;
+  color: #435247;
+  box-shadow: 0 2px 4px rgb(34 50 38 / 4%);
+}
+
+.manager-action-button--secondary:hover:not(:disabled) {
+  border-color: #becdbf;
+  background: #f7faf6;
+}
+
+.manager-action-button--danger-soft {
+  border-color: #efd7d3;
+  background: #fff8f7;
+  color: #a64d43;
+}
+
+.manager-action-button--danger-soft:hover:not(:disabled) {
+  border-color: #e7bdb6;
+  background: #fff0ee;
+}
+
+.manager-sales-page .manager-sale-card > .manager-action-button {
+  margin-top: 3px;
+}
+
+.manager-sales-page .return-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.manager-purchasing-page .purchasing-form-submit {
+  grid-column: 1 / -1;
+  justify-self: start;
+  min-width: 150px;
+}
+
+.manager-purchasing-page .purchase-order-input-row > .manager-action-button {
+  min-height: 42px;
+}
+
+.manager-purchasing-page .manager-add-order-line {
+  min-height: 43px;
+  border-style: dashed;
+}
+
+.manager-purchasing-page .purchase-order-card > .manager-action-button {
+  margin-top: 4px;
+}
+
+.product-details-edit-toggle {
+  width: 100%;
+  margin-top: 13px;
+}
+
+.product-details-edit-form {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #dce5da;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f9fbf8, #fff);
+}
+
+.product-details-edit-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+.product-details-edit-heading h4 {
+  margin: 0;
+  color: #2c3a30;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.product-details-edit-heading p {
+  margin-top: 4px;
+  color: #778177;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.product-details-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.product-details-edit-grid label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #4a584c;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.product-details-edit-grid input,
+.product-details-edit-grid select,
+.product-details-edit-grid textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 39px;
+  padding: 8px 10px;
+  border: 1px solid #d6ded4;
+  border-radius: 8px;
+  background: #fff;
+  color: #2c382f;
+  font: inherit;
+  font-size: 14px;
+}
+
+.product-details-edit-grid textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.product-details-edit-grid input:focus,
+.product-details-edit-grid select:focus,
+.product-details-edit-grid textarea:focus {
+  border-color: #7f9b82;
+  outline: 3px solid rgb(78 118 94 / 15%);
+}
+
+.product-details-edit-wide {
+  grid-column: 1 / -1;
+}
+
+.product-details-edit-error {
+  margin: 10px 0 0;
+  color: #a1322c;
+  font-size: 14px;
+}
+
+.product-details-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 560px) {
+  .product-details-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-details-edit-wide {
+    grid-column: auto;
+  }
+
+  .manager-purchasing-page .purchasing-form-submit {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manager-action-button {
+    transition: none;
+  }
+}

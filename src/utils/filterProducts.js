@@ -4,7 +4,7 @@ export function filterProducts(products, searchTerm, category = "all") {
   return products.filter((p) => {
     const matchesSearch =
       !term ||
-      [p.title, p.brand, p.category].some((field) =>
+      [p.title, p.brand, p.category, p.barcode].some((field) =>
         field?.toLowerCase().includes(term)
       );
     const matchesCategory = category === "all" || p.category === category;

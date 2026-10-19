@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatPrice } from "../utils/formatPrice";
 
 function ProductCard({
@@ -5,26 +6,32 @@ function ProductCard({
   inCart,
   onAddToCart,
   onViewDetails,
-  showStock,
 }) {
   const remainingStock = Math.max(product.stock - inCart, 0);
   const outOfStock = remainingStock === 0;
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <article className="product-card">
       <div className="product-card__image-wrap">
-        <img
-          className="product-card__image"
-          src={product.thumbnail}
-          alt={product.title}
-          loading="lazy"
-        />
+        {product.thumbnail && !imageFailed ? (
+          <img
+            className="product-card__image"
+            src={product.thumbnail}
+            alt={product.title}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div className="product-card__placeholder" aria-label="Product image unavailable">
+            <span>TP</span>
+            <small>Product image</small>
+          </div>
+        )}
       </div>
 
       <div className="product-card__details">
-        <p className="product-card__category">
-          {product.category}
-        </p>
+        <span className="product-card__category">{product.category || "Uncategorised"}</span>
 
         <h2 className="product-card__title">
           {product.title}
@@ -34,17 +41,12 @@ function ProductCard({
           {formatPrice(product.price)}
         </p>
 
-        {showStock && (
-          <p className="product-card__stock">
-            {remainingStock} unit{remainingStock === 1 ? "" : "s"} left
-          </p>
-        )}
-
-        <p>
-          Available: {remainingStock}
+        <p className={`product-card__stock${outOfStock ? " is-empty" : ""}`}>
+          {outOfStock ? "Out of stock" : `${remainingStock} available`}
         </p>
 
         <button
+          className="product-card__details-button"
           onClick={() => onViewDetails(product)}
         >
           View Details

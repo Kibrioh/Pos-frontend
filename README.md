@@ -35,9 +35,8 @@ goods, and the software that supports that transaction. A modern POS:
 | Sale completion | Done (sent to the backend, which checks stock and prices) |
 | Authentication & roles | Done (real login with JWT tokens) |
 | Manager dashboard, sales, cashiers, products pages | Done (backend) |
-| POS tabs (multi-customer) | In progress |
 | Receipt printing | In progress |
-| Order history and stock ledger | Stored in the browser only (not yet on the backend) |
+| Categories, order history, and stock ledger | Loaded from the backend database |
 | Settings | In progress |
 | Responsive polish | In progress |
 
@@ -49,12 +48,14 @@ request and turns server errors into readable messages.
 | Screen | What it does with the backend |
 |--------|-------------------------------|
 | Login | `POST /api/auth/login`; the token is saved in the browser and removed on logout |
-| Product list | `GET /api/products`, loaded fresh every time the app starts |
+| Product list and category filters | `GET /api/products` and `GET /api/categories`, loaded from the database when the app starts |
 | Checkout | `POST /api/sales` with product ids and quantities only. The server checks stock, uses its own prices, and the receipt is built from the server's reply. If the server refuses (for example, not enough stock), its message is shown and the cart stays as it is. |
-| Manager: sales | `GET /api/sales` (all cashiers' sales) |
+| Order history | `GET /api/sales/mine` for a cashier; `GET /api/sales` for a manager |
+| Stock ledger | `GET /api/stock/movements` |
+| Manager: sales | `GET /api/sales` (all cashiers' sales) and `GET /api/reports/sales-by-cashier` |
 | Manager: cashiers | `GET /api/auth/users` to list, `POST /api/auth/register` to add |
-| Manager: dashboard | cashier count from `GET /api/reports/dashboard` |
-| Manager: products | add and edit price through `POST` / `PUT /api/products`; stock +/- through `POST /api/stock/adjust` (recorded as stock movements) |
+| Manager: dashboard | Sales, transaction, inventory, low-stock, and cashier totals from `GET /api/reports/dashboard` |
+| Manager: products | Loads products and categories from the database; add and edit through `POST` / `PUT /api/products`; stock +/- through `POST /api/stock/adjust` (recorded as stock movements) |
 
 The backend stores prices in USD. The frontend converts them to KSh for display
 at a fixed rate:
@@ -71,7 +72,7 @@ at a fixed rate:
 - Search products by title, brand, or category
 - Filter by category
 - Add products to a cart, change quantities within stock limits, remove items
-- Several customers at once with POS tabs
+- Hold a sale temporarily and restore it later
 - Choose a payment method and complete the sale
 - View, print, and download the receipt
 - View order history
@@ -96,11 +97,11 @@ at a fixed rate:
 |-------|------------|
 | UI library | React 19 |
 | Build tool | Vite 8 |
-| State management | React useReducer + useState + Context |
+| State management | React useState and reducer functions |
 | Routing | React Router |
 | Styling | Plain CSS |
 | Data and login | Flask REST API, JWT bearer tokens |
-| Persistence in the browser | localStorage (order history, stock ledger, saved login token) |
+| Persistence in the browser | localStorage (saved login token); business records are loaded from the backend |
 | Linting | ESLint |
 
 ## Installation
@@ -149,11 +150,10 @@ cashiers from the Cashiers page. The old Phase 1 demo logins no longer work.
     pos-system/
     ├── public/
     ├── src/
-    │   ├── api/              # client.js (token + errors), products.js
+    │   ├── api/              # client.js (token + errors), products.js, categories.js
     │   ├── cart/             # cart reducer
     │   ├── components/       # shared UI and manager pages
     │   ├── hooks/            # useDebounce
-    │   ├── tabs/             # POS tabs reducer
     │   ├── utils/            # shared helpers
     │   ├── App.jsx
     │   └── main.jsx
@@ -169,7 +169,7 @@ Modules under `src/utils/` are small helpers used across the app.
 |---------|---------|
 | formatPrice.js | USD to KSh conversion, safe parsing, line totals |
 | storage.js | Namespaced localStorage wrapper (never throws) |
-| id.js | Unique IDs for sales, tabs, ledger entries, receipts |
+| id.js | Unique IDs for orders, ledger entries, receipts |
 | dates.js | Date / time / relative formatting for en-KE |
 | receiptText.js | Build and download a plain-text receipt |
 | lowStock.js | Classify products as in / low / out of stock |
@@ -184,7 +184,7 @@ Modules under `src/utils/` are small helpers used across the app.
 | 1 | Sylvans | Scrum Master / API, Auth, Dashboard |
 | 2 | Brian   | Product Catalogue & Stock Management |
 | 3 | Mark    | Search & Filtering |
-| 4 | Oprah   | Cart, Tabs, Sale, Ledger, Receipt |
+| 4 | Oprah   | Cart, Sale, Ledger, Receipt |
 | 5 | Prince  | UI/UX, Navigation, Reports, Settings |
 | 6 | Moses   | Testing, Documentation & Shared Utilities |
 
@@ -192,7 +192,7 @@ Modules under `src/utils/` are small helpers used across the app.
 
 - The backend is the source of truth for products, sales, users and stock; the
   frontend never calculates prices for a sale. The server does.
-- useReducer for cart and tabs state: cart operations map cleanly to reducers.
+- Cart updates use a reducer function to keep cart operations consistent.
 - Fixed USD to KSh rate (130): one constant keeps conversion in one place.
 - Stock changes from the manager page go through `POST /api/stock/adjust`, so
   each change leaves a stock movement in the database.
@@ -201,8 +201,6 @@ Modules under `src/utils/` are small helpers used across the app.
 
 ## Known issues
 
-- Order history and the stock ledger are still stored in the browser, so they
-  are different on each computer.
 - The cashier's "recent sales" card only shows sales made in the current
   session.
 - Products and cashiers cannot be deleted: the backend has no delete endpoint.
@@ -219,7 +217,6 @@ Included in Phase 2:
 
 Not included yet:
 
-- Order history and ledger stored on the server
 - Deleting or deactivating products and users
 - Real payment processing (M-Pesa / Stripe)
 - Physical receipt printer integration

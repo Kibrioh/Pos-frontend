@@ -1,5 +1,5 @@
 // src/utils/id.js
-// Short, unique, human-readable IDs for sales, tabs, ledger entries, etc.
+// Short, unique, human-readable IDs for orders, ledger entries, etc.
 // Format: "PREFIX-base36time-randomseq"
 // Example: "SALE-lz3k4a-7f2"
 //
@@ -10,7 +10,7 @@ let counter = 0;
 
 /**
  * Generate a unique ID with the given prefix.
- * @param {string} prefix - e.g. "SALE", "TAB", "LEDGER"
+ * @param {string} prefix - e.g. "SALE", "ORD", "LEDGER"
  * @returns {string}
  */
 export function makeId(prefix = "ID") {
@@ -22,7 +22,6 @@ export function makeId(prefix = "ID") {
 }
 
 export const saleId    = () => makeId("SALE");
-export const tabId     = () => makeId("TAB");
 export const orderId   = () => makeId("ORD");
 export const ledgerId  = () => makeId("LED");
 export const restockId = () => makeId("RST");

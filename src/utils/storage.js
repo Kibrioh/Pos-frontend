@@ -89,7 +89,6 @@ export function keys() {
 export const KEYS = Object.freeze({
   AUTH: "auth",
   CART: "cart",
-  TABS: "tabs",
   ORDERS: "orders",
   LEDGER: "ledger",
   RESTOCKS: "restocks",

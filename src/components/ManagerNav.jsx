@@ -21,6 +21,18 @@ function ManagerNav({ user, onLogout }) {
     Products & Inventory
   </NavLink>
 
+  <NavLink to="/manager/purchasing">
+    Purchasing
+  </NavLink>
+
+  <NavLink to="/manager/shifts">
+    Shifts
+  </NavLink>
+
+  <NavLink to="/manager/audit">
+    Audit
+  </NavLink>
+
   <NavLink to="/manager/cashiers">
     Cashiers
   </NavLink>

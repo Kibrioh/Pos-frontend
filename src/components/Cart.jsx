@@ -8,6 +8,7 @@ function Cart({
   onClear,
   onCheckout,
   onHoldSale,
+  checkoutDisabled = false,
 }) {
   const total = items.reduce(
     (sum, i) => sum + toKsh(i.price) * i.quantity,
@@ -97,11 +98,13 @@ function Cart({
             </button>
 
             <button
+              disabled={checkoutDisabled}
+              title={checkoutDisabled ? "Open a till shift before checking out" : undefined}
               onClick={() =>
                 onCheckout(total, itemCount)
               }
             >
-              Complete Sale
+              {checkoutDisabled ? "Open shift to checkout" : "Complete Sale"}
             </button>
           </div>
         </>

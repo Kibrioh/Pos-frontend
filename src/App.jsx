@@ -4,8 +4,11 @@ import ManagerNav from "./components/ManagerNav";
 import ManagerSales from "./components/ManagerSales";
 import ManagerProducts from "./components/ManagerProducts";
 import ManagerCashiers from "./components/ManagerCashiers";
+import ManagerPurchasing from "./components/ManagerPurchasing";
+import ManagerAudit from "./components/ManagerAudit";
+import ManagerShifts from "./components/ManagerShifts";
+import CashierShiftPanel from "./components/CashierShiftPanel";
 import About from "./components/About";
-import Tabs from "./components/Tabs";
 
 import {
   BrowserRouter,
@@ -20,10 +23,10 @@ import {
   useMemo,
   useState,
   useRef,
-  useReducer,
 } from "react";
 
 import { getProducts } from "./api/products";
+import { getCategories } from "./api/categories";
 import { apiFetch, clearToken } from "./api/client";
 import { cartReducer } from "./cart/cartReducer";
 import {
@@ -32,31 +35,11 @@ import {
 } from "./utils/formatPrice";
 
 import {
-  saleId,
-  orderId,
-  receiptNumber,
-} from "./utils/id";
-
-import {
-  makeSaleEntriesForCart,
-} from "./utils/ledger";
-
-import {
   downloadReceiptText,
 } from "./utils/receiptText";
 
-import {
-  load,
-  save,
-  KEYS,
-} from "./utils/storage";
-
-import {
-  initialTabsState,
-  tabsReducer,
-} from "./tabs/tabsReducer";
-
 import ProductList from "./components/ProductList";
+import ProductPagination from "./components/ProductPagination";
 import ProductDetails from "./components/ProductDetails";
 import SearchBar from "./components/SearchBar";
 import CategoryFilter from "./components/CategoryFilter";
@@ -68,110 +51,45 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /*
-    PRODUCTS
-
-    First check localStorage.
-
-    If products have already been saved,
-    use those products instead of fetching
-    fresh stock from DummyJSON.
-
-    This means stock changes survive
-    page refreshes.
-  */
-  const [products, setProducts] = useState(() => {
-    const savedProducts = localStorage.getItem(
-      "techpoint-products"
-    );
-
-    return savedProducts
-      ? JSON.parse(savedProducts)
-      : [];
-  });
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [categoryError, setCategoryError] = useState(null);
 
   const [currentUser, setCurrentUser] = useState(null);
 
-  /*
-    DEFAULT USERS
-  */
-  const defaultUsers = [
-    {
-      username: "cashier",
-      password: "cash123",
-      role: "cashier",
-      name: "Cashier 1",
-    },
-    {
-      username: "cashier2",
-      password: "cash123",
-      role: "cashier",
-      name: "Cashier 2",
-    },
-    {
-      username: "manager",
-      password: "man123",
-      role: "manager",
-      name: "Store Manager",
-    },
-  ];
-
-  /*
-    USERS
-
-    Users are loaded from localStorage so
-    newly registered cashiers survive refresh.
-  */
-  const [users, setUsers] = useState(() => {
-    const savedUsers = localStorage.getItem(
-      "techpoint-users"
-    );
-
-    return savedUsers
-      ? JSON.parse(savedUsers)
-      : defaultUsers;
-  });
-
-  /*
-    Save users whenever they change.
-  */
+  // Products and category names come from the backend database.
   useEffect(() => {
-    localStorage.setItem(
-      "techpoint-users",
-      JSON.stringify(users)
-    );
-  }, [users]);
+    let isMounted = true;
 
-  /*
-    Load products.
+    Promise.allSettled([getProducts(), getCategories()])
+      .then(([productResult, categoryResult]) => {
+        if (!isMounted) return;
 
-    If products already exist in localStorage,
-    use them instead of fetching fresh data.
-  */
-  useEffect(() => {
-    getProducts()
-      .then((data) => setProducts(data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+        if (productResult.status === "fulfilled") {
+          setProducts(productResult.value);
+          setError(null);
+        } else {
+          setError(productResult.reason.message);
+        }
+
+        if (categoryResult.status === "fulfilled") {
+          setCategories(categoryResult.value);
+          setCategoryError(null);
+        } else {
+          setCategoryError(categoryResult.reason.message);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  /*
-    Save products whenever they change.
-
-    This means stock changes made after
-    completing a sale survive refresh.
-  */
-  useEffect(() => {
-    if (products.length > 0) {
-      localStorage.setItem(
-        "techpoint-products",
-        JSON.stringify(products)
-      );
-    }
-  }, [products]);
 
   /*
     Each cashier has their own cart.
@@ -182,13 +100,10 @@ function App() {
   const [heldCarts, setHeldCarts] = useState([]);
 const [sale, setSale] = useState(null);
 const [paymentMethod, setPaymentMethod] = useState("Cash");
-  const [tabsState, tabsDispatch] =
-  useReducer(
-    tabsReducer,
-    initialTabsState
-  );
+const [cashierShift, setCashierShift] = useState(null);
   const [sessionSales, setSessionSales] =
     useState([]);
+  const [managerSalesRevision, setManagerSalesRevision] = useState(0);
 
   const receiptRef = useRef(null);
 
@@ -219,6 +134,7 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
     if (nextView) {
       setView(nextView);
     }
+    setSale(null);
   }, [location.pathname]);
 
   /*
@@ -227,83 +143,6 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
   const cart = currentUser
     ? cashierCarts[currentUser.username] ?? []
     : [];
-
-    const activeTab =
-  tabsState.tabs.find(
-    (tab) =>
-      tab.id ===
-      tabsState.activeTabId
-  ) ?? null;
-
-    const createNewTab = () => {
-    tabsDispatch({
-      type: "ADD_TAB",
-      tab: {
-        name: `Tab ${tabsState.tabs.length + 1}`,
-        items: [],
-      },
-    });
-
-    if (currentUser) {
-      setCashierCarts((carts) => ({
-        ...carts,
-        [currentUser.username]: [],
-      }));
-    }
-  };
-
-  const switchTab = (tabId) => {
-    if (!currentUser) {
-      return;
-    }
-
-    const selectedTab =
-      tabsState.tabs.find(
-        (tab) => tab.id === tabId
-      );
-
-    if (!selectedTab) {
-      return;
-    }
-
-    setCashierCarts((carts) => ({
-      ...carts,
-      [currentUser.username]:
-        selectedTab.items ?? [],
-    }));
-
-    tabsDispatch({
-      type: "SET_ACTIVE_TAB",
-      id: tabId,
-    });
-  };
-
-  const closeTab = (tabId) => {
-    const tab =
-      tabsState.tabs.find(
-        (item) => item.id === tabId
-      );
-
-    if (!tab) {
-      return;
-    }
-
-    if (tab.items.length > 0) {
-      const confirmed =
-        window.confirm(
-          `${tab.name} contains items. Close it anyway?`
-        );
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    tabsDispatch({
-      type: "REMOVE_TAB",
-      id: tabId,
-    });
-  };
 
   /*
     Apply cartReducer to the current
@@ -326,14 +165,6 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
         action
       );
 
-    if (tabsState.activeTabId) {
-      tabsDispatch({
-        type: "SET_TAB_ITEMS",
-        id: tabsState.activeTabId,
-        items: nextCart,
-      });
-    }
-
     return {
       ...carts,
       [username]: nextCart,
@@ -352,20 +183,9 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
         carts[user.username] ?? [],
     }));
 
-   if (user.role === "cashier") {
-  if (tabsState.tabs.length === 0) {
-    tabsDispatch({
-      type: "ADD_TAB",
-      tab: {
-        name: "Tab 1",
-        items: [],
-      },
-    });
-  }
-}
-
     setCurrentUser(user);
     setSale(null);
+    setCashierShift(null);
     setSelectedProduct(null);
 
     if (user.role === "manager") {
@@ -382,6 +202,7 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
   */
   const handleSwitchUser = () => {
     setSale(null);
+    setCashierShift(null);
     setSelectedProduct(null);
     setSearchInput("");
     setCategory("all");
@@ -391,21 +212,6 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
 
     navigate("/");
   };
-
-  /*
-    Product categories
-  */
-  const categories = useMemo(
-    () =>
-      [
-        ...new Set(
-          products.map(
-            (product) => product.category
-          )
-        ),
-      ].sort(),
-    [products]
-  );
 
   /*
     Featured products
@@ -463,6 +269,8 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
   const search = useDebounce(searchInput, 300);
   const [category, setCategory] =
     useState("all");
+  const [productPage, setProductPage] = useState(1);
+  const [productPageSize, setProductPageSize] = useState(10);
 
    const filteredProducts = useMemo(() => {
     const matches = filterProducts(products, search, category);
@@ -473,9 +281,31 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
       const quantityInCart =
         cart.find((item) => item.id === product.id)?.quantity ?? 0;
 
-      return product.stock > 0 && product.stock - quantityInCart <= 10;
+      return (
+        product.stock > 0 &&
+        product.stock - quantityInCart <=
+          (product.low_stock_threshold ?? 5)
+      );
     });
   }, [products, search, category, view, cart]);
+
+  const productPageCount = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / productPageSize),
+  );
+  const currentProductPage = Math.min(productPage, productPageCount);
+  const pagedProducts = useMemo(() => {
+    const firstIndex = (currentProductPage - 1) * productPageSize;
+    return filteredProducts.slice(firstIndex, firstIndex + productPageSize);
+  }, [filteredProducts, currentProductPage, productPageSize]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [search, category, view]);
+
+  useEffect(() => {
+    setProductPage((currentPage) => Math.min(currentPage, productPageCount));
+  }, [productPageCount]);
 
   /*
     Low-stock count
@@ -489,9 +319,8 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
 
       return (
         product.stock > 0 &&
-        product.stock -
-          quantityInCart <=
-          10
+        product.stock - quantityInCart <=
+          (product.low_stock_threshold ?? 5)
       );
     }
   ).length;
@@ -535,6 +364,7 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
     setSearchInput("");
     setCategory("all");
     setSelectedProduct(null);
+    setSale(null);
     setView(nextView);
 
     const routes = {
@@ -547,6 +377,23 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
 };
 
     navigate(routes[nextView] || "/");
+  };
+
+  const handleBarcodeScan = (barcode) => {
+    const normalizedBarcode = barcode.trim().toLowerCase();
+    const product = products.find(
+      (item) => item.barcode?.trim().toLowerCase() === normalizedBarcode,
+    );
+    if (!product) return false;
+
+    const quantityInCart = cart.find((item) => item.id === product.id)?.quantity || 0;
+    if (quantityInCart >= product.stock) {
+      window.alert(`${product.title} is out of stock.`);
+    } else {
+      dispatch({ type: "ADD", product });
+    }
+    setSearchInput("");
+    return true;
   };
 
   /*
@@ -678,62 +525,34 @@ const [paymentMethod, setPaymentMethod] = useState("Cash");
       return;
     }
 
-    const serverPrices = {};
-    serverSale.items.forEach((item) => {
-      serverPrices[item.product_id] = Number(item.unit_price);
-    });
-
-    const billedCart = cart.map((item) => ({
-      ...item,
-      price: serverPrices[Number(item.id)] ?? item.price,
-    }));
-
-    const subtotalKsh = billedCart.reduce(
-  (sum, item) =>
-    sum +
-    toKsh(item.price) * item.quantity,
-  0
-);
-
-const totalKsh = subtotalKsh;
-
-const completedSale = {
-  id: saleId(),
-  orderId: orderId(),
-  receiptNumber: receiptNumber(),
-  createdAt: Date.now(),
-
-  cashier: {
-    name: currentUser.username,
-  },
-
-  items: billedCart.map((item) => ({
-    id: item.id,
-    title: item.title,
-    price: item.price,
-    quantity: item.quantity,
-    lineTotalKsh:
-      toKsh(item.price) * item.quantity,
-  })),
-
-  subtotalKsh,
-  totalKsh,
-
-  paymentMethod,
-
-  itemCount: cart.reduce(
-    (sum, item) =>
-      sum + item.quantity,
-    0
-  ),
-};
-
-const ledgerEntries = makeSaleEntriesForCart({
-  items: cart,
-  products,
-  user: currentUser.username,
-  at: completedSale.createdAt,
-});
+    const saleNumber = String(serverSale.id).padStart(6, "0");
+    const totalKsh = toKsh(serverSale.total_amount);
+    const paymentMethodLabel = String(
+      serverSale.payment_method || paymentMethod
+    ).replace(/^./, (character) => character.toUpperCase());
+    const completedSale = {
+      id: serverSale.id,
+      orderId: `ORD-${saleNumber}`,
+      receiptNumber: `RCP-${saleNumber}`,
+      createdAt: serverSale.created_at,
+      completedAt: serverSale.created_at,
+      cashier: currentUser.name || currentUser.username,
+      items: serverSale.items.map((item) => ({
+        id: item.product_id,
+        title: item.product_title,
+        price: Number(item.unit_price),
+        quantity: item.quantity,
+        lineTotalKsh: toKsh(item.subtotal),
+      })),
+      subtotalKsh: totalKsh,
+      totalKsh,
+      total: totalKsh,
+      paymentMethod: paymentMethodLabel,
+      itemCount: serverSale.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      ),
+    };
 
     /*
       Reduce stock.
@@ -764,6 +583,11 @@ const ledgerEntries = makeSaleEntriesForCart({
         )
     );
 
+    // Refresh the catalogue from the database after the sale is committed.
+    getProducts()
+      .then(setProducts)
+      .catch(() => {});
+
     /*
       Save receipt.
     */
@@ -777,48 +601,12 @@ const ledgerEntries = makeSaleEntriesForCart({
       completedSale,
     ]);
 
-    const existingOrders = load(
-  KEYS.ORDERS,
-  []
-);
-
-save(
-  KEYS.ORDERS,
-  [
-    ...existingOrders,
-    completedSale,
-  ]
-);
-
-    /*
-  Save ledger entries.
-*/
-const existingLedger = load(
-  KEYS.LEDGER,
-  []
-);
-
-save(
-  KEYS.LEDGER,
-  [
-    ...existingLedger,
-    ...ledgerEntries,
-  ]
-);
-
     /*
       Clear only current cashier's cart.
     */
     dispatch({
       type: "CLEAR",
     });
-
-    if (tabsState.activeTabId) {
-  tabsDispatch({
-    type: "REMOVE_TAB",
-    id: tabsState.activeTabId,
-  });
-}
 
     /*
       Scroll to receipt.
@@ -860,25 +648,27 @@ save(
               cashier: names[sale.user_id] || `user ${sale.user_id}`,
               items: sale.items.map((item) => ({
                 id: item.product_id,
+                saleItemId: item.id,
                 title: item.product_title,
-                price: Number(item.unit_price),
+                price: toKsh(item.unit_price),
                 quantity: item.quantity,
               })),
-              total: sale.items.reduce(
-                (sum, item) =>
-                  sum + toKsh(item.unit_price) * item.quantity,
-                0
-              ),
+              returns: (sale.returns || []).map((returnRecord) => ({
+                ...returnRecord,
+                refund_total: toKsh(returnRecord.refund_total),
+              })),
+              total: toKsh(sale.total_amount),
               itemCount: sale.items.reduce(
                 (sum, item) => sum + item.quantity,
                 0
               ),
               completedAt: sale.created_at,
+              paymentMethod: String(sale.payment_method || "").replace(/^./, (c) => c.toUpperCase()),
             }))
         );
       })
       .catch((err) => console.error("Could not load sales:", err.message));
-  }, [currentUser]);
+  }, [currentUser, managerSalesRevision]);
 
   /*
     ORDERS AND LEDGER: loaded from the backend when the
@@ -936,10 +726,7 @@ save(
               ? names[sale.user_id] || "user " + sale.user_id
               : currentUser.name || currentUser.username,
             createdAt: sale.created_at,
-            totalKsh: sale.items.reduce(
-              (sum, item) => sum + toKsh(item.unit_price) * item.quantity,
-              0
-            ),
+            totalKsh: toKsh(sale.total_amount),
             itemCount: sale.items.reduce(
               (sum, item) => sum + item.quantity,
               0
@@ -1013,7 +800,6 @@ save(
   if (!currentUser) {
     return (
       <Login
-        users={users}
         onLogin={handleLogin}
       />
     );
@@ -1051,12 +837,6 @@ save(
             path="/manager"
             element={
               <ManagerDashboard
-                user={currentUser}
-                onLogout={
-                  handleSwitchUser
-                }
-                products={products}
-                sales={sessionSales}
               />
             }
           />
@@ -1066,15 +846,31 @@ save(
             element={
               <ManagerSales
                 sales={sessionSales}
+                  onReturnCreated={() => setManagerSalesRevision((revision) => revision + 1)}
               />
             }
           />
+
+            <Route
+              path="/manager/purchasing"
+              element={
+                <ManagerPurchasing
+                  products={products}
+                  setProducts={setProducts}
+                />
+              }
+            />
+            <Route path="/manager/shifts" element={<ManagerShifts user={currentUser} />} />
+            <Route path="/manager/audit" element={<ManagerAudit />} />
 
           <Route
             path="/manager/products"
             element={
               <ManagerProducts
                 products={products}
+                categories={categories}
+                loading={loading}
+                error={error}
                 setProducts={
                   setProducts
                 }
@@ -1085,10 +881,7 @@ save(
           <Route
             path="/manager/cashiers"
             element={
-              <ManagerCashiers
-                users={users}
-                setUsers={setUsers}
-              />
+              <ManagerCashiers />
             }
           />
 
@@ -1096,12 +889,6 @@ save(
             path="*"
             element={
               <ManagerDashboard
-                user={currentUser}
-                onLogout={
-                  handleSwitchUser
-                }
-                products={products}
-                sales={sessionSales}
               />
             }
           />
@@ -1452,9 +1239,7 @@ save(
                     </strong>
 
                     <span className="feature-product-price">
-                      {formatKsh(
-                        featuredProduct.price
-                      )}
+                      {formatKsh(toKsh(featuredProduct.price))}
                     </span>
                   </div>
                 </>
@@ -1668,7 +1453,7 @@ save(
                   Loading categories...
                 </p>
               </div>
-            ) : error ? (
+            ) : categoryError ? (
               <div
                 className="catalogue-message catalogue-message--error"
                 role="alert"
@@ -1678,7 +1463,7 @@ save(
                   be loaded
                 </h2>
 
-                <p>{error}</p>
+                <p>{categoryError}</p>
               </div>
             ) : categories.length ===
               0 ? (
@@ -1696,12 +1481,12 @@ save(
             ) : (
               <ul className="category-list">
                 {categories.map(
-                  (categoryName) => {
+                  (categoryRecord) => {
+                    const categoryName = categoryRecord.name;
                     const productCount =
                       products.filter(
                         (product) =>
-                          product.category ===
-                          categoryName
+                          product.category_id === categoryRecord.id
                       ).length;
 
                     const categoryLabel =
@@ -1722,9 +1507,7 @@ save(
 
                     return (
                       <li
-                        key={
-                          categoryName
-                        }
+                        key={categoryRecord.id}
                       >
                         <button
                           className="category-list-button"
@@ -2027,13 +1810,6 @@ save(
         </main>
       ) : (
         <main className="main-content">
-          <Tabs
-  tabs={tabsState.tabs}
-  activeTabId={tabsState.activeTabId}
-  onSelect={switchTab}
-  onAdd={createNewTab}
-  onRemove={closeTab}
-/>
           <section
             className="catalogue"
             aria-labelledby="catalogue-title"
@@ -2159,22 +1935,24 @@ save(
                 <div className="receipt-actions">
                   <button
                     type="button"
+                    className="receipt-action-button receipt-action-button--print"
                     onClick={() =>
                       window.print()
                     }
                   >
-                    Print Receipt
+                    <span aria-hidden="true">▣</span> Print receipt
                   </button>
 
                   <button
                     type="button"
+                    className="receipt-action-button receipt-action-button--download"
                     onClick={() =>
                       downloadReceiptText(
                         sale
                       )
                     }
                   >
-                    Download Receipt
+                    <span aria-hidden="true">↓</span> Download receipt
                   </button>
                 </div>
 
@@ -2197,6 +1975,7 @@ save(
               <SearchBar
                 value={searchInput}
                 onChange={setSearchInput}
+                onScan={handleBarcodeScan}
               />
 
               <CategoryFilter
@@ -2209,6 +1988,8 @@ save(
                 }
               />
             </div>
+
+            <CashierShiftPanel user={currentUser} onShiftChange={setCashierShift} />
 
             {currentCashierHeldSales.length >
               0 && (
@@ -2353,18 +2134,19 @@ save(
                 </button>
               </div>
             ) : (
-              <div className="catalogue-layout">
+              <>
+                <div className="catalogue-layout">
                 <div className="catalogue-panel">
                   <p className="catalogue-summary">
                     {view ===
                     "low-stock"
-                      ? `Showing ${filteredProducts.length} low-stock products`
-                      : `Showing ${filteredProducts.length} of ${products.length} products`}
+                      ? `${filteredProducts.length} low-stock products`
+                      : `${filteredProducts.length} products match your search and filters`}
                   </p>
 
                   <ProductList
                     products={
-                      filteredProducts
+                      pagedProducts
                     }
                     cart={cart}
                     showStock={
@@ -2382,6 +2164,16 @@ save(
                     onViewDetails={
                       handleViewDetails
                     }
+                  />
+                  <ProductPagination
+                    currentPage={currentProductPage}
+                    pageSize={productPageSize}
+                    totalItems={filteredProducts.length}
+                    onPageChange={setProductPage}
+                    onPageSizeChange={(size) => {
+                      setProductPageSize(size);
+                      setProductPage(1);
+                    }}
                   />
                 </div>
                 <div className="payment-method-selector">
@@ -2442,11 +2234,13 @@ save(
                   onCheckout={
                     completeSale
                   }
+                  checkoutDisabled={!cashierShift}
                   onHoldSale={
                     holdSale
                   }
                 />
               </div>
+              </>
             )}
 
             {selectedProduct && (

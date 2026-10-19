@@ -332,7 +332,7 @@ p {
 }
 
 .manager-page-kicker {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 1.5px;
   color: #6b7280 !important;
@@ -354,7 +354,7 @@ p {
 }
 
 .inventory-summary span {
-  font-size: 13px;
+  font-size: 14px;
   color: #6b7280;
 }
 
@@ -377,7 +377,7 @@ p {
 .manager-search label,
 .manager-filter label,
 .add-product-form label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #374151;
 }
@@ -441,15 +441,16 @@ p {
   flex-direction: column;
   overflow: hidden;
   background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  transition: transform 0.2s ease,
-    box-shadow 0.2s ease;
+  border: 1px solid #e7ebe5;
+  border-radius: 15px;
+  box-shadow: 0 6px 18px rgba(36, 50, 38, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .manager-product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  border-color: #d4ded1;
+  box-shadow: 0 14px 28px rgba(36, 50, 38, 0.12);
 }
 
 .manager-product-image {
@@ -457,8 +458,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(145deg, #f8faf7, #edf2ec);
+  border-bottom: 1px solid #edf0eb;
 }
 
 .manager-product-image img {
@@ -476,7 +477,7 @@ p {
 .manager-product-category {
   display: inline-block;
   margin-bottom: 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -492,7 +493,14 @@ p {
 .manager-product-brand {
   margin: 0 0 15px;
   color: #6b7280;
+  font-size: 14px;
+}
+
+.manager-product-barcode {
+  margin: -8px 0 14px;
+  color: #899389;
   font-size: 13px;
+  letter-spacing: 0.03em;
 }
 
 
@@ -529,7 +537,7 @@ p {
   margin-bottom: 15px;
   padding: 9px 12px;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -563,7 +571,7 @@ p {
   border: none;
   border-radius: 7px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
@@ -662,6 +670,19 @@ p {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.add-product-thumbnail-preview {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.thumbnail-preview-message {
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .add-product-button {

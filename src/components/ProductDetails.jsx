@@ -5,8 +5,13 @@ function ProductDetails({ product, onClose, onAddToCart }) {
 
   return (
     <div className="product-details">
-      <button onClick={onClose}>
-        ← Back to Products
+      <button
+        type="button"
+        className="product-details-back-button"
+        onClick={onClose}
+      >
+        <span aria-hidden="true">←</span>
+        Back to Products
       </button>
 
       <div className="product-details-content">
@@ -38,11 +43,6 @@ function ProductDetails({ product, onClose, onAddToCart }) {
           <p>
             <strong>Available:</strong>{" "}
             {product.stock}
-          </p>
-
-          <p>
-            <strong>Rating:</strong>{" "}
-            {product.rating}
           </p>
 
           <button

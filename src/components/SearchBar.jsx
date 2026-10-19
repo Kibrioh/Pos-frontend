@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 function SearchBar({
   value,
   onChange,
+  onScan,
   placeholder = "Search by title, brand or category...",
 }) {
   const inputRef = useRef(null);
@@ -26,6 +27,12 @@ function SearchBar({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && value.trim() && onScan?.(value.trim())) {
+            event.preventDefault();
+          }
+        }}
+        aria-label="Search products or scan a barcode"
       />
       {value && (
         <button type="button" onClick={() => onChange("")}>
