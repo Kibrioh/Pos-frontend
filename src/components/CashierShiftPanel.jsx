@@ -4,6 +4,15 @@ import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 
 const toBaseAmount = (value) => Number(value || 0) / USD_TO_KSH;
 
+function cashDifferenceLabel(value) {
+  const difference = Number(value || 0);
+  const amount = toKsh(Math.abs(difference));
+  if (!amount) return "Balanced";
+  return difference > 0
+    ? `Over by ${formatKsh(amount)}`
+    : `Short by ${formatKsh(amount)}`;
+}
+
 function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
   const [shift, setShift] = useState(null);
   const [closingCash, setClosingCash] = useState("");
@@ -85,7 +94,7 @@ function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
             Opened {new Date(shift.opened_at).toLocaleString()} · Opening float {formatKsh(toKsh(shift.opening_cash))}
           </p>
           <div className="shift-close-result" role="status">
-            Expected till cash {formatKsh(toKsh(shift.expected_cash))}
+            Expected till cash: {formatKsh(toKsh(shift.expected_cash))}
             <button className="button-secondary" type="button" onClick={refreshShift}>Refresh</button>
           </div>
           <p className="shift-open-summary">
@@ -105,7 +114,7 @@ function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
 
       {closeResult && (
         <div className="shift-close-result" role="status">
-          Expected {formatKsh(toKsh(closeResult.expected_cash))} · Counted {formatKsh(toKsh(closeResult.closing_cash))} · Variance {formatKsh(toKsh(closeResult.cash_variance))}
+          Expected till cash: {formatKsh(toKsh(closeResult.expected_cash))} · Counted cash: {formatKsh(toKsh(closeResult.closing_cash))} · Cash difference: {cashDifferenceLabel(closeResult.cash_variance)}
         </div>
       )}
     </section>

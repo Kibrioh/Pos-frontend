@@ -31,7 +31,7 @@ function ProductPagination({
           <select
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            aria-label={`Products per page`}
+            aria-label={`${itemLabel} per page`}
           >
             <option value="10">10</option>
             <option value="20">20</option>
@@ -41,7 +41,7 @@ function ProductPagination({
         </label>
 
         {pageCount > 1 && (
-          <nav className="product-page-nav" aria-label="Product pages">
+          <nav className="product-page-nav" aria-label={`${itemLabel} pages`}>
             <button
               type="button"
               className="product-page-arrow"

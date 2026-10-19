@@ -2,6 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 
+function cashDifferenceLabel(value) {
+  const difference = Number(value || 0);
+  const amount = toKsh(Math.abs(difference));
+  if (!amount) return "Balanced";
+  return difference > 0
+    ? `Over by ${formatKsh(amount)}`
+    : `Short by ${formatKsh(amount)}`;
+}
+
 function ManagerShifts() {
   const [shifts, setShifts] = useState([]);
   const [cashiers, setCashiers] = useState([]);
@@ -12,6 +21,7 @@ function ManagerShifts() {
   const [movementAmount, setMovementAmount] = useState("");
   const [movementNote, setMovementNote] = useState("");
   const [movementError, setMovementError] = useState("");
+  const [movementSuccess, setMovementSuccess] = useState("");
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,6 +75,7 @@ function ManagerShifts() {
   const recordCashMovement = async (event) => {
     event.preventDefault();
     setMovementError("");
+    setMovementSuccess("");
     setBusy(true);
     try {
       await apiFetch(`/shifts/${movementShiftId}/cash-movements`, {
@@ -78,6 +89,7 @@ function ManagerShifts() {
       setMovementAmount("");
       setMovementNote("");
       await reload();
+      setMovementSuccess("Till adjustment recorded. Updated expected till cash is shown below; the cashier can see it after refreshing their till panel.");
     } catch (err) {
       setMovementError(err.message);
       await reload();
@@ -100,7 +112,7 @@ function ManagerShifts() {
   return (
     <main className="manager-content">
       <div className="manager-page-heading">
-        <div><p className="manager-page-kicker">TILL CONTROL</p><h2>Cashier shifts</h2><p>Review opening floats, cash movements, and closing variances.</p></div>
+        <div><p className="manager-page-kicker">TILL CONTROL</p><h2>Cashier shifts</h2><p>Review opening floats, till adjustments, and closing cash totals.</p></div>
         <div className="inventory-summary"><strong>{shifts.filter((shift) => shift.status === "open").length}</strong><span>Open shifts</span></div>
       </div>
 
@@ -131,7 +143,7 @@ function ManagerShifts() {
       </section>
 
       <section className="manager-section">
-        <div className="section-heading-row"><div><h3>Record till adjustment</h3><p>Use this only for cash added or removed outside normal sales and refunds. Cash sales are counted automatically.</p></div></div>
+        <div className="section-heading-row"><div><h3>Record till adjustment</h3><p>Use this only for cash added or removed outside normal sales and refunds. Cash sales are counted automatically, and this adjustment immediately updates expected till cash shown in Recent shifts.</p></div></div>
         <form className="shift-inline-form" onSubmit={recordCashMovement}>
           <label>
             Open till
@@ -175,6 +187,7 @@ function ManagerShifts() {
             {busy ? "Recording…" : "Record adjustment"}
           </button>
         </form>
+        {movementSuccess && <p className="form-success" role="status">{movementSuccess}</p>}
         {movementDirection === "out" && selectedMovementShift && (
           <p className="shift-cash-available">Cash currently available: {formatKsh(availableCashKsh)}</p>
         )}
@@ -195,7 +208,7 @@ function ManagerShifts() {
                   <div><h4>{shift.cashier || `User ${shift.user_id}`}</h4><p>Opened {new Date(shift.opened_at).toLocaleString()}</p>{shift.closed_at && <p>Closed {new Date(shift.closed_at).toLocaleString()}</p>}</div>
                   <span className={`shift-status${shift.status === "open" ? " is-open" : ""}`}>{shift.status}</span>
                 </div>
-                <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "open" && <span>Expected now <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span>}{shift.status === "closed" && <><span>Expected <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Variance <strong>{formatKsh(toKsh(shift.cash_variance))}</strong></span></>}</div>
+                <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "open" && <span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span>}{shift.status === "closed" && <><span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted cash <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Cash difference <strong>{cashDifferenceLabel(shift.cash_variance)}</strong></span></>}</div>
                 {shift.cash_movements?.length > 0 && <details className="shift-movements"><summary>{shift.cash_movements.length} till movements</summary><ul>{shift.cash_movements.map((movement) => <li key={movement.id}>{movement.direction === "in" ? "Cash in" : "Cash out"} · {formatKsh(toKsh(movement.amount))} · {movement.note}</li>)}</ul></details>}
               </article>
             ))}

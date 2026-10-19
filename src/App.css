@@ -365,8 +365,12 @@ button:focus {
 .product-card__image-wrap {
   display: grid;
   place-items: center;
-  aspect-ratio: 1.2;
-  padding: 20px;
+  width: 100%;
+  height: 180px;
+  min-height: 180px;
+  padding: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
   background: linear-gradient(145deg, #f7f9f6, #edf1ec);
 }
 
@@ -374,6 +378,8 @@ button:focus {
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 8px 10px rgb(25 40 30 / 8%));
 }
@@ -1083,6 +1089,16 @@ button:focus {
   font-size: 14px;
 }
 
+.form-success {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #c7ddc8;
+  border-radius: 8px;
+  background: #f0f8f0;
+  color: #285c31;
+  font-size: 14px;
+}
+
 .catalogue-message--error h2 {
   color: #a6422b;
 }
@@ -1172,7 +1188,8 @@ button:focus {
   }
 
   .product-card__image-wrap {
-    aspect-ratio: 1;
+    height: 160px;
+    min-height: 160px;
     padding: 12px;
   }
 
@@ -3043,7 +3060,8 @@ button:focus {
   }
 
   .product-card__image-wrap {
-    aspect-ratio: 1.5;
+    height: 190px;
+    min-height: 190px;
   }
 
   .sale-confirmation {

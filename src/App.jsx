@@ -700,7 +700,32 @@ function App() {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ledger, setLedger] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
   const [printOrder, setPrintOrder] = useState(null);
+
+  const orderedReceipts = orders.slice().reverse();
+  const receiptPage = Math.min(
+    historyPage,
+    Math.max(1, Math.ceil(orderedReceipts.length / historyPageSize))
+  );
+  const visibleReceipts = orderedReceipts.slice(
+    (receiptPage - 1) * historyPageSize,
+    receiptPage * historyPageSize
+  );
+  const orderedLedger = ledger.slice().reverse();
+  const ledgerPage = Math.min(
+    historyPage,
+    Math.max(1, Math.ceil(orderedLedger.length / historyPageSize))
+  );
+  const visibleLedger = orderedLedger.slice(
+    (ledgerPage - 1) * historyPageSize,
+    ledgerPage * historyPageSize
+  );
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [view]);
 
   useEffect(() => {
     if (!printOrder) return undefined;
@@ -751,6 +776,7 @@ function App() {
     };
 
     const loadOrders = async () => {
+      setHistoryPage(1);
       const names = await loadUserNames();
       const data = await apiFetch(isManager ? "/sales" : "/sales/mine");
 
@@ -805,6 +831,7 @@ function App() {
     };
 
     const loadLedger = async () => {
+      setHistoryPage(1);
       const [names, movementData, productData] = await Promise.all([
         loadUserNames(),
         apiFetch("/stock/movements"),
@@ -1662,11 +1689,9 @@ function App() {
                 </p>
               </div>
             ) : (
+              <>
               <div className="orders-list">
-                {orders
-                  .slice()
-                  .reverse()
-                  .map((order) => (
+                {visibleReceipts.map((order) => (
                     <article
                       key={order.id}
                       className="order-card cashier-sale-card"
@@ -1787,8 +1812,20 @@ function App() {
                         </button>
                       </div>
                     </article>
-                  ))}
+                ))}
               </div>
+              <ProductPagination
+                currentPage={receiptPage}
+                pageSize={historyPageSize}
+                totalItems={orderedReceipts.length}
+                itemLabel="receipts"
+                onPageChange={setHistoryPage}
+                onPageSizeChange={(size) => {
+                  setHistoryPageSize(size);
+                  setHistoryPage(1);
+                }}
+              />
+              </>
             )}
           </section>
         </main>
@@ -1806,7 +1843,7 @@ function App() {
                 </h1>
 
                 <p>
-                  Track stock movements from completed sales.
+                  Browse stock additions, sales, and quantity updates.
                 </p>
               </div>
             </div>
@@ -1818,15 +1855,13 @@ function App() {
                 </h2>
 
                 <p>
-                  Stock movements will appear here after sales are completed.
+                  Restocks, sales, and stock updates will appear here.
                 </p>
               </div>
             ) : (
+              <>
               <div className="orders-list">
-                {ledger
-                  .slice()
-                  .reverse()
-                  .map((entry) => (
+                {visibleLedger.map((entry) => (
                     <article
                       key={entry.id}
                       className="order-card"
@@ -1865,12 +1900,26 @@ function App() {
                         </p>
 
                         <p>
-                          Change: {entry.delta}
+                          Stock movement: {entry.delta > 0
+                            ? `${entry.delta} unit${entry.delta === 1 ? "" : "s"} added`
+                            : `${Math.abs(entry.delta)} unit${entry.delta === -1 ? "" : "s"} removed`}
                         </p>
                       </div>
                     </article>
-                  ))}
+                ))}
               </div>
+              <ProductPagination
+                currentPage={ledgerPage}
+                pageSize={historyPageSize}
+                totalItems={orderedLedger.length}
+                itemLabel="ledger entries"
+                onPageChange={setHistoryPage}
+                onPageSizeChange={(size) => {
+                  setHistoryPageSize(size);
+                  setHistoryPage(1);
+                }}
+              />
+              </>
             )}
           </section>
         </main>
