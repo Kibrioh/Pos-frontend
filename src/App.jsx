@@ -881,6 +881,115 @@ save(
   }, [currentUser]);
 
   /*
+    ORDERS AND LEDGER: loaded from the backend when the
+    Orders or Ledger screen is opened, and after a sale.
+  */
+  const [orders, setOrders] = useState([]);
+  const [ledger, setLedger] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    if (view !== "orders" && view !== "ledger") {
+      return;
+    }
+
+    const isManager = currentUser.role === "manager";
+
+    const toArray = (data, key) =>
+      Array.isArray(data) ? data : (data && data[key]) || [];
+
+    const loadUserNames = async () => {
+      const names = {};
+
+      if (!isManager) {
+        return names;
+      }
+
+      try {
+        const data = await apiFetch("/auth/users");
+        (data.users || []).forEach((u) => {
+          names[u.id] = u.name || u.username;
+        });
+      } catch {
+        // names fall back to "user <id>"
+      }
+
+      return names;
+    };
+
+    const loadOrders = async () => {
+      const names = await loadUserNames();
+      const data = await apiFetch(isManager ? "/sales" : "/sales/mine");
+
+      setOrders(
+        toArray(data, "sales")
+          .slice()
+          .reverse()
+          .map((sale) => ({
+            id: sale.id,
+            receiptNumber: "RCP-" + String(sale.id).padStart(6, "0"),
+            orderId: "ORD-" + String(sale.id).padStart(6, "0"),
+            cashier: isManager
+              ? names[sale.user_id] || "user " + sale.user_id
+              : currentUser.name || currentUser.username,
+            createdAt: sale.created_at,
+            totalKsh: sale.items.reduce(
+              (sum, item) => sum + toKsh(item.unit_price) * item.quantity,
+              0
+            ),
+            itemCount: sale.items.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            ),
+            paymentMethod: String(sale.payment_method || "").replace(
+              /^./,
+              (c) => c.toUpperCase()
+            ),
+          }))
+      );
+    };
+
+    const loadLedger = async () => {
+      const [names, movementData, productData] = await Promise.all([
+        loadUserNames(),
+        apiFetch("/stock/movements"),
+        apiFetch("/products"),
+      ]);
+
+      const titles = {};
+      toArray(productData, "products").forEach((p) => {
+        titles[p.id] = p.title;
+      });
+
+      setLedger(
+        toArray(movementData, "movements")
+          .slice()
+          .reverse()
+          .map((m) => ({
+            id: m.id,
+            type: m.movement_type,
+            productTitle: titles[m.product_id] || "Product #" + m.product_id,
+            user: names[m.user_id] || "user " + m.user_id,
+            createdAt: m.created_at,
+            quantity: Math.abs(m.quantity_delta),
+            before: m.stock_before,
+            after: m.stock_after,
+            delta: m.quantity_delta,
+          }))
+      );
+    };
+
+    const run = view === "orders" ? loadOrders : loadLedger;
+
+    run().catch((err) =>
+      console.error("Could not load history:", err.message)
+    );
+  }, [currentUser, view, sale]);
+
+  /*
     PRODUCT DETAILS
   */
   const handleViewDetails = (
@@ -1684,7 +1793,7 @@ save(
               </div>
             </div>
 
-            {load(KEYS.ORDERS, []).length === 0 ? (
+            {orders.length === 0 ? (
               <div className="catalogue-message">
                 <h2>
                   No orders yet
@@ -1697,7 +1806,7 @@ save(
               </div>
             ) : (
               <div className="orders-list">
-                {load(KEYS.ORDERS, [])
+                {orders
                   .slice()
                   .reverse()
                   .map((order) => (
@@ -1769,7 +1878,7 @@ save(
               </div>
             </div>
 
-            {load(KEYS.ORDERS, []).length === 0 ? (
+            {orders.length === 0 ? (
               <div className="catalogue-message">
                 <h2>
                   No orders yet
@@ -1782,7 +1891,7 @@ save(
               </div>
             ) : (
               <div className="orders-list">
-                {load(KEYS.ORDERS, [])
+                {orders
                   .slice()
                   .reverse()
                   .map((order) => (
@@ -1853,7 +1962,7 @@ save(
               </div>
             </div>
 
-            {load(KEYS.LEDGER, []).length === 0 ? (
+            {ledger.length === 0 ? (
               <div className="catalogue-message">
                 <h2>
                   No ledger entries yet
@@ -1865,7 +1974,7 @@ save(
               </div>
             ) : (
               <div className="orders-list">
-                {load(KEYS.LEDGER, [])
+                {ledger
                   .slice()
                   .reverse()
                   .map((entry) => (
