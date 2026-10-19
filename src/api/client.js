@@ -1,4 +1,4 @@
-const BASE_URL = "https://pos-backend-egns.onrender.com";
+const BASE_URL = "https://pos-backend-egns.onrender.com/api";
 const TOKEN_KEY = "techpoint_token";
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
