@@ -6,6 +6,7 @@ function ProductList({
   onAddToCart = () => {},
   onViewDetails,
   showStock = false,
+  readOnly = false,
 }) {
   return (
     <div className="product-grid">
@@ -18,6 +19,7 @@ function ProductList({
               ?.quantity ?? 0
           }
           showStock={showStock}
+          readOnly={readOnly}
           onAddToCart={onAddToCart}
           onViewDetails={onViewDetails}
         />

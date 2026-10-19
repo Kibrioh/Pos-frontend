@@ -1,17 +1,57 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
-import { formatKsh, toKsh } from "../utils/formatPrice";
-import CashierShiftPanel from "./CashierShiftPanel";
+import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 
-function ManagerShifts({ user }) {
+function ManagerShifts() {
   const [shifts, setShifts] = useState([]);
+  const [cashiers, setCashiers] = useState([]);
+  const [cashierId, setCashierId] = useState("");
+  const [openingFloat, setOpeningFloat] = useState("");
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const reload = useCallback(() => apiFetch("/shifts")
-    .then((data) => setShifts(Array.isArray(data) ? data : []))
-    .catch((err) => setError(err.message)), []);
+  const reload = useCallback(async () => {
+    try {
+      const [shiftData, userData] = await Promise.all([
+        apiFetch("/shifts"),
+        apiFetch("/auth/users"),
+      ]);
+      setShifts(Array.isArray(shiftData) ? shiftData : []);
+      setCashiers((userData.users || []).filter((user) => user.role === "cashier"));
+      setLoadError("");
+    } catch (err) {
+      setLoadError(err.message);
+    }
+  }, []);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const openCashierIds = new Set(
+    shifts.filter((shift) => shift.status === "open").map((shift) => shift.user_id)
+  );
+
+  const assignFloat = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await apiFetch("/shifts/assign", {
+        method: "POST",
+        body: JSON.stringify({
+          cashier_id: Number(cashierId),
+          opening_cash: Number(openingFloat) / USD_TO_KSH,
+        }),
+      });
+      setCashierId("");
+      setOpeningFloat("");
+      await reload();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <main className="manager-content">
@@ -19,10 +59,36 @@ function ManagerShifts({ user }) {
         <div><p className="manager-page-kicker">TILL CONTROL</p><h2>Cashier shifts</h2><p>Review opening floats, cash movements, and closing variances.</p></div>
         <div className="inventory-summary"><strong>{shifts.filter((shift) => shift.status === "open").length}</strong><span>Open shifts</span></div>
       </div>
-      <CashierShiftPanel user={user} onShiftChange={reload} />
+
+      <section className="manager-section">
+        <div className="section-heading-row"><div><h3>Assign cashier float</h3><p>Choose a cashier and open their till with the cash float you hand them.</p></div></div>
+        <form className="shift-inline-form shift-assign-form" onSubmit={assignFloat}>
+          <label>
+            Cashier
+            <select value={cashierId} onChange={(event) => setCashierId(event.target.value)} required>
+              <option value="">Select a cashier</option>
+              {cashiers.map((cashier) => (
+                <option key={cashier.id} value={cashier.id} disabled={openCashierIds.has(cashier.id)}>
+                  {cashier.name}{openCashierIds.has(cashier.id) ? " · Shift already open" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Opening float (KSh)
+            <input type="number" min="0" step="0.01" value={openingFloat} onChange={(event) => setOpeningFloat(event.target.value)} placeholder="e.g. 2,000" required />
+          </label>
+          <button className="shift-open-button" disabled={busy || !cashierId}>
+            {busy ? "Assigning…" : "Assign float & open shift"}
+          </button>
+        </form>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {cashiers.length === 0 && !error && <p>No cashiers are registered yet.</p>}
+      </section>
+
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Recent shifts</h3><p>Includes open and closed till sessions.</p></div></div>
-        {error ? <p className="form-error" role="alert">{error}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
+        {loadError ? <p className="form-error" role="alert">{loadError}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
           <div className="shift-list">
             {shifts.map((shift) => (
               <article className="shift-record" key={shift.id}>
@@ -30,7 +96,7 @@ function ManagerShifts({ user }) {
                   <div><h4>{shift.cashier || `User ${shift.user_id}`}</h4><p>Opened {new Date(shift.opened_at).toLocaleString()}</p>{shift.closed_at && <p>Closed {new Date(shift.closed_at).toLocaleString()}</p>}</div>
                   <span className={`shift-status${shift.status === "open" ? " is-open" : ""}`}>{shift.status}</span>
                 </div>
-                <div className="shift-record-values"><span>Float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "closed" && <><span>Expected <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Variance <strong>{formatKsh(toKsh(shift.cash_variance))}</strong></span></>}</div>
+                <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "closed" && <><span>Expected <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Variance <strong>{formatKsh(toKsh(shift.cash_variance))}</strong></span></>}</div>
                 {shift.cash_movements?.length > 0 && <details className="shift-movements"><summary>{shift.cash_movements.length} till movements</summary><ul>{shift.cash_movements.map((movement) => <li key={movement.id}>{movement.direction === "in" ? "Cash in" : "Cash out"} · {formatKsh(toKsh(movement.amount))} · {movement.note}</li>)}</ul></details>}
               </article>
             ))}

@@ -32,7 +32,7 @@ function SearchBar({
             event.preventDefault();
           }
         }}
-        aria-label="Search products or scan a barcode"
+        aria-label={onScan ? "Search products or scan a barcode" : "Search products"}
       />
       {value && (
         <button type="button" onClick={() => onChange("")}>

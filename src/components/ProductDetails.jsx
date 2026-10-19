@@ -1,6 +1,6 @@
 import { formatPrice } from "../utils/formatPrice";
 
-function ProductDetails({ product, onClose, onAddToCart }) {
+function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
   if (!product) return null;
 
   return (
@@ -45,14 +45,16 @@ function ProductDetails({ product, onClose, onAddToCart }) {
             {product.stock}
           </p>
 
-          <button
-            onClick={() => onAddToCart(product)}
-            disabled={product.stock < 1}
-          >
-            {product.stock < 1
-              ? "Out of Stock"
-              : "Add to Cart"}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => onAddToCart(product)}
+              disabled={product.stock < 1}
+            >
+              {product.stock < 1
+                ? "Out of Stock"
+                : "Add to Cart"}
+            </button>
+          )}
         </div>
       </div>
     </div>

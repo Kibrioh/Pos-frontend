@@ -6,7 +6,6 @@ const toBaseAmount = (value) => Number(value || 0) / USD_TO_KSH;
 
 function CashierShiftPanel({ user, onShiftChange }) {
   const [shift, setShift] = useState(null);
-  const [openingCash, setOpeningCash] = useState("");
   const [closingCash, setClosingCash] = useState("");
   const [movementDirection, setMovementDirection] = useState("in");
   const [movementAmount, setMovementAmount] = useState("");
@@ -17,7 +16,17 @@ function CashierShiftPanel({ user, onShiftChange }) {
 
   const acceptShift = (nextShift) => {
     setShift(nextShift);
+    if (nextShift) setCloseResult(null);
     onShiftChange?.(nextShift);
+  };
+
+  const refreshShift = async () => {
+    setError("");
+    try {
+      acceptShift(await apiFetch("/shifts/current"));
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   useEffect(() => {
@@ -33,25 +42,6 @@ function CashierShiftPanel({ user, onShiftChange }) {
       mounted = false;
     };
   }, [user?.id]);
-
-  const openShift = async (event) => {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const result = await apiFetch("/shifts/open", {
-        method: "POST",
-        body: JSON.stringify({ opening_cash: toBaseAmount(openingCash) }),
-      });
-      acceptShift(result);
-      setOpeningCash("");
-      setCloseResult(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const addCashMovement = async (event) => {
     event.preventDefault();
@@ -106,31 +96,17 @@ function CashierShiftPanel({ user, onShiftChange }) {
           <h2 id="shift-panel-title">Till shift</h2>
         </div>
         <span className={`shift-status${shift ? " is-open" : ""}`}>
-          {shift ? "Shift open" : "Shift closed"}
+          {shift ? "Shift open" : "Awaiting float"}
         </span>
       </div>
 
       {error && <p className="form-error" role="alert">{error}</p>}
 
       {!shift ? (
-        <form className="shift-inline-form shift-open-form" onSubmit={openShift}>
-          <label>
-            Opening float (KSh)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={openingCash}
-              onChange={(event) => setOpeningCash(event.target.value)}
-              placeholder="0.00"
-              required
-            />
-          </label>
-          <button className="button-primary shift-open-button" disabled={busy}>
-            <span className="shift-open-button__icon" aria-hidden="true">+</span>
-            {busy ? "Opening…" : "Open shift"}
-          </button>
-        </form>
+        <div className="shift-unassigned">
+          <p className="shift-open-summary">No float has been assigned yet. Ask your manager to assign your till float before starting sales.</p>
+          <button className="button-secondary" type="button" onClick={refreshShift}>Check for assigned float</button>
+        </div>
       ) : (
         <>
           <p className="shift-open-summary">

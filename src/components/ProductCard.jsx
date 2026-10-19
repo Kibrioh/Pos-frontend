@@ -6,8 +6,9 @@ function ProductCard({
   inCart,
   onAddToCart,
   onViewDetails,
+  readOnly = false,
 }) {
-  const remainingStock = Math.max(product.stock - inCart, 0);
+  const remainingStock = Math.max(product.stock - (readOnly ? 0 : inCart), 0);
   const outOfStock = remainingStock === 0;
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -52,13 +53,15 @@ function ProductCard({
           View Details
         </button>
 
-        <button
-          className="product-card__button"
-          onClick={() => onAddToCart(product)}
-          disabled={outOfStock}
-        >
-          {outOfStock ? "Out of stock" : "Add to cart"}
-        </button>
+        {!readOnly && (
+          <button
+            className="product-card__button"
+            onClick={() => onAddToCart(product)}
+            disabled={outOfStock}
+          >
+            {outOfStock ? "Out of stock" : "Add to cart"}
+          </button>
+        )}
       </div>
     </article>
   );

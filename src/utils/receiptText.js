@@ -103,6 +103,10 @@ export function buildReceiptText(sale) {
   lines.push("");
   if (sale.paymentMethod) {
     lines.push(padLeft("Paid via: " + sale.paymentMethod, LINE_WIDTH));
+    if (sale.amountTenderedKsh != null) {
+      lines.push(padLeft("Cash received: " + formatKsh(sale.amountTenderedKsh), LINE_WIDTH));
+      lines.push(padLeft("Change: " + formatKsh(sale.changeGivenKsh || 0), LINE_WIDTH));
+    }
     lines.push("");
   }
   lines.push(divider("="));

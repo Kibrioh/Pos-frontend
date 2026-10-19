@@ -32,6 +32,7 @@ import { cartReducer } from "./cart/cartReducer";
 import {
   formatKsh,
   toKsh,
+  USD_TO_KSH,
 } from "./utils/formatPrice";
 
 import {
@@ -44,6 +45,7 @@ import ProductDetails from "./components/ProductDetails";
 import SearchBar from "./components/SearchBar";
 import CategoryFilter from "./components/CategoryFilter";
 import Cart from "./components/Cart";
+import CheckoutDialog from "./components/CheckoutDialog";
 import { filterProducts } from "./utils/filterProducts";
 import { useDebounce } from "./hooks/useDebounce";
 
@@ -99,7 +101,8 @@ function App() {
 
   const [heldCarts, setHeldCarts] = useState([]);
 const [sale, setSale] = useState(null);
-const [paymentMethod, setPaymentMethod] = useState("Cash");
+const [checkoutOpen, setCheckoutOpen] = useState(false);
+const [checkoutError, setCheckoutError] = useState("");
 const [cashierShift, setCashierShift] = useState(null);
   const [sessionSales, setSessionSales] =
     useState([]);
@@ -125,6 +128,8 @@ const [cashierShift, setCashierShift] = useState(null);
       "/": "home",
       "/cashier/products": "products",
       "/cashier/categories": "categories",
+      "/cashier/orders": "orders",
+      "/cashier/ledger": "ledger",
       "/cashier/low-stock": "low-stock",
     };
 
@@ -185,6 +190,8 @@ const [cashierShift, setCashierShift] = useState(null);
 
     setCurrentUser(user);
     setSale(null);
+    setCheckoutOpen(false);
+    setCheckoutError("");
     setCashierShift(null);
     setSelectedProduct(null);
 
@@ -202,6 +209,8 @@ const [cashierShift, setCashierShift] = useState(null);
   */
   const handleSwitchUser = () => {
     setSale(null);
+    setCheckoutOpen(false);
+    setCheckoutError("");
     setCashierShift(null);
     setSelectedProduct(null);
     setSearchInput("");
@@ -480,9 +489,9 @@ const [cashierShift, setCashierShift] = useState(null);
   /*
     COMPLETE SALE
   */
-  const completeSale = async () => {
+  const completeSale = async ({ paymentMethod, amountTenderedKsh }) => {
     if (cart.length === 0) {
-      return;
+      return false;
     }
 
     const stockProblem =
@@ -501,11 +510,10 @@ const [cashierShift, setCashierShift] = useState(null);
       });
 
     if (stockProblem) {
-      window.alert(
+      setCheckoutError(
         "The sale cannot be completed because one or more products do not have enough stock."
       );
-
-      return;
+      return false;
     }
     let serverSale;
 
@@ -514,6 +522,9 @@ const [cashierShift, setCashierShift] = useState(null);
         method: "POST",
         body: JSON.stringify({
           payment_method: paymentMethod,
+          amount_tendered: paymentMethod === "cash"
+            ? Number(amountTenderedKsh) / USD_TO_KSH
+            : null,
           items: cart.map((item) => ({
             product_id: Number(item.id),
             quantity: item.quantity,
@@ -521,15 +532,17 @@ const [cashierShift, setCashierShift] = useState(null);
         }),
       });
     } catch (err) {
-      window.alert(err.message);
-      return;
+      setCheckoutError(err.message);
+      return false;
     }
 
     const saleNumber = String(serverSale.id).padStart(6, "0");
     const totalKsh = toKsh(serverSale.total_amount);
-    const paymentMethodLabel = String(
-      serverSale.payment_method || paymentMethod
-    ).replace(/^./, (character) => character.toUpperCase());
+    const paymentMethodLabel = {
+      cash: "Cash",
+      card: "Card",
+      "m-pesa": "M-Pesa",
+    }[serverSale.payment_method || paymentMethod] || paymentMethod;
     const completedSale = {
       id: serverSale.id,
       orderId: `ORD-${saleNumber}`,
@@ -548,6 +561,10 @@ const [cashierShift, setCashierShift] = useState(null);
       totalKsh,
       total: totalKsh,
       paymentMethod: paymentMethodLabel,
+      amountTenderedKsh: serverSale.amount_tendered == null
+        ? null
+        : toKsh(serverSale.amount_tendered),
+      changeGivenKsh: toKsh(serverSale.change_given ?? 0),
       itemCount: serverSale.items.reduce(
         (sum, item) => sum + item.quantity,
         0
@@ -592,6 +609,8 @@ const [cashierShift, setCashierShift] = useState(null);
       Save receipt.
     */
     setSale(completedSale);
+    setCheckoutOpen(false);
+    setCheckoutError("");
 
     /*
       Save sale for manager.
@@ -617,6 +636,7 @@ const [cashierShift, setCashierShift] = useState(null);
         block: "start",
       });
     }, 100);
+    return true;
   };
 
   /*
@@ -671,10 +691,11 @@ const [cashierShift, setCashierShift] = useState(null);
   }, [currentUser, managerSalesRevision]);
 
   /*
-    ORDERS AND LEDGER: loaded from the backend when the
-    Orders or Ledger screen is opened, and after a sale.
+    Sales history and the stock ledger load when their screens open,
+    and sales history refreshes after a sale is completed.
   */
   const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [ledger, setLedger] = useState([]);
 
   useEffect(() => {
@@ -727,7 +748,32 @@ const [cashierShift, setCashierShift] = useState(null);
               : currentUser.name || currentUser.username,
             createdAt: sale.created_at,
             totalKsh: toKsh(sale.total_amount),
-            itemCount: sale.items.reduce(
+            amountTenderedKsh: sale.amount_tendered == null
+              ? null
+              : toKsh(sale.amount_tendered),
+            changeGivenKsh: toKsh(sale.change_given),
+            netAfterRefundsKsh: toKsh(
+              Number(sale.total_amount) - (sale.returns || []).reduce(
+                (sum, returnRecord) => sum + Number(returnRecord.refund_total || 0),
+                0
+              )
+            ),
+            returns: (sale.returns || []).map((returnRecord) => ({
+              id: returnRecord.id,
+              reason: returnRecord.reason,
+              refundMethod: returnRecord.refund_method,
+              refundTotalKsh: toKsh(returnRecord.refund_total),
+              createdAt: returnRecord.created_at,
+              items: returnRecord.items || [],
+            })),
+            items: (sale.items || []).map((item) => ({
+              id: item.id,
+              title: item.product_title || `Product #${item.product_id}`,
+              quantity: item.quantity,
+              unitPriceKsh: toKsh(item.unit_price),
+              lineTotalKsh: toKsh(item.subtotal),
+            })),
+            itemCount: (sale.items || []).reduce(
               (sum, item) => sum + item.quantity,
               0
             ),
@@ -770,10 +816,17 @@ const [cashierShift, setCashierShift] = useState(null);
     };
 
     const run = view === "orders" ? loadOrders : loadLedger;
+    if (view === "orders") {
+      setOrdersLoading(true);
+    }
 
     run().catch((err) =>
       console.error("Could not load history:", err.message)
-    );
+    ).finally(() => {
+      if (view === "orders") {
+        setOrdersLoading(false);
+      }
+    });
   }, [currentUser, view, sale]);
 
   /*
@@ -860,7 +913,7 @@ const [cashierShift, setCashierShift] = useState(null);
                 />
               }
             />
-            <Route path="/manager/shifts" element={<ManagerShifts user={currentUser} />} />
+            <Route path="/manager/shifts" element={<ManagerShifts />} />
             <Route path="/manager/audit" element={<ManagerAudit />} />
 
           <Route
@@ -1019,7 +1072,7 @@ const [cashierShift, setCashierShift] = useState(null);
               )
             }
           >
-            Orders
+            My Sales
           </button>
 
           <button
@@ -1556,91 +1609,6 @@ const [cashierShift, setCashierShift] = useState(null);
             )}
           </section>
         </main>
-              ) : view === "orders" ? (
-        <main className="main-content">
-          <section className="catalogue">
-            <div className="catalogue-heading">
-              <div>
-                <p className="section-kicker">
-                  SALES HISTORY
-                </p>
-
-                <h1>
-                  Orders
-                </h1>
-
-                <p>
-                  View completed sales and
-                  order details.
-                </p>
-              </div>
-            </div>
-
-            {orders.length === 0 ? (
-              <div className="catalogue-message">
-                <h2>
-                  No orders yet
-                </h2>
-
-                <p>
-                  Completed sales will
-                  appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="orders-list">
-                {orders
-                  .slice()
-                  .reverse()
-                  .map((order) => (
-                    <article
-                      key={order.id}
-                      className="order-card"
-                    >
-                      <div>
-                        <p className="section-kicker">
-                          {order.receiptNumber}
-                        </p>
-
-                        <h2>
-                          {order.orderId}
-                        </h2>
-
-                        <p>
-                          Cashier:{" "}
-                          {order.cashier?.name ??
-                            order.cashier}
-                        </p>
-
-                        <p>
-                          {new Date(
-                            order.createdAt
-                          ).toLocaleString()}
-                        </p>
-                      </div>
-
-                      <div>
-                        <strong>
-                          {formatKsh(
-                            order.totalKsh
-                          )}
-                        </strong>
-
-                        <p>
-                          {order.itemCount} item(s)
-                        </p>
-
-                        <p>
-                          Paid via:{" "}
-                          {order.paymentMethod}
-                        </p>
-                      </div>
-                    </article>
-                  ))}
-              </div>
-            )}
-          </section>
-        </main>
       ) : view === "orders" ? (
         <main className="main-content">
           <section className="catalogue">
@@ -1651,25 +1619,27 @@ const [cashierShift, setCashierShift] = useState(null);
                 </p>
 
                 <h1>
-                  Orders
+                  My Sales
                 </h1>
 
                 <p>
-                  View completed sales and
-                  order details.
+                  Review each completed sale, its items, payment, and any returns.
                 </p>
               </div>
             </div>
 
-            {orders.length === 0 ? (
+            {ordersLoading ? (
+              <div className="catalogue-message" role="status">
+                <p>Loading your sales…</p>
+              </div>
+            ) : orders.length === 0 ? (
               <div className="catalogue-message">
                 <h2>
-                  No orders yet
+                  No sales yet
                 </h2>
 
                 <p>
-                  Completed sales will
-                  appear here.
+                  Your completed sales will appear here with receipt details.
                 </p>
               </div>
             ) : (
@@ -1680,7 +1650,7 @@ const [cashierShift, setCashierShift] = useState(null);
                   .map((order) => (
                     <article
                       key={order.id}
-                      className="order-card"
+                      className="order-card cashier-sale-card"
                     >
                       <div>
                         <p className="section-kicker">
@@ -1719,6 +1689,76 @@ const [cashierShift, setCashierShift] = useState(null);
                           Paid via:{" "}
                           {order.paymentMethod}
                         </p>
+
+                        <details className="cashier-sale-details">
+                          <summary>View receipt details</summary>
+                          <div className="cashier-sale-detail-content">
+                            <dl className="cashier-sale-payment">
+                              <div>
+                                <dt>Original total</dt>
+                                <dd>{formatKsh(order.totalKsh)}</dd>
+                              </div>
+                              <div>
+                                <dt>Refunds</dt>
+                                <dd>
+                                  {formatKsh(order.returns.reduce(
+                                    (sum, returnRecord) => sum + returnRecord.refundTotalKsh,
+                                    0
+                                  ))}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Net after refunds</dt>
+                                <dd>
+                                  {formatKsh(order.netAfterRefundsKsh)}
+                                </dd>
+                              </div>
+                              {order.amountTenderedKsh != null && (
+                                <div>
+                                  <dt>Cash received</dt>
+                                  <dd>{formatKsh(order.amountTenderedKsh)}</dd>
+                                </div>
+                              )}
+                              {order.amountTenderedKsh != null && (
+                                <div>
+                                  <dt>Change given</dt>
+                                  <dd>{formatKsh(order.changeGivenKsh)}</dd>
+                                </div>
+                              )}
+                            </dl>
+
+                            <h3>Items sold</h3>
+                            {order.items.length ? (
+                              <ul className="cashier-sale-items">
+                                {order.items.map((item) => (
+                                  <li key={item.id}>
+                                    <span>{item.title} <small>{item.quantity} × {formatKsh(item.unitPriceKsh)}</small></span>
+                                    <strong>{formatKsh(item.lineTotalKsh)}</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p>No item details are available for this sale.</p>
+                            )}
+
+                            {order.returns.length > 0 && (
+                              <div className="cashier-sale-returns">
+                                <h3>Returns and refunds</h3>
+                                {order.returns.map((returnRecord) => (
+                                  <div key={returnRecord.id}>
+                                    <strong>{formatKsh(returnRecord.refundTotalKsh)} refunded via {returnRecord.refundMethod}</strong>
+                                    <p>{returnRecord.reason} · {new Date(returnRecord.createdAt).toLocaleString()}</p>
+                                    {returnRecord.items.map((item, index) => (
+                                      <small key={`${item.sale_item_id}-${index}`}>
+                                        {item.product_title}: {item.quantity} returned
+                                      </small>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </details>
                       </div>
                     </article>
                   ))}
@@ -1829,7 +1869,7 @@ const [cashierShift, setCashierShift] = useState(null);
                 <p className="section-description">
                   {view ===
                   "low-stock"
-                    ? "Products with 10 or fewer units in stock."
+                    ? "Products at or below their low-stock threshold."
                     : "Electronics and accessories for every setup."}
                 </p>
               </div>
@@ -1845,7 +1885,7 @@ const [cashierShift, setCashierShift] = useState(null);
                 )}
             </div>
 
-            {sale && (
+            {sale && view !== "low-stock" && (
               <div
                 className="sale-confirmation"
                 ref={receiptRef}
@@ -1930,6 +1970,12 @@ const [cashierShift, setCashierShift] = useState(null);
     <strong>Payment:</strong>{" "}
     {sale.paymentMethod}
   </p>
+  {sale.amountTenderedKsh != null && (
+    <>
+      <p><strong>Cash received:</strong> {formatKsh(sale.amountTenderedKsh)}</p>
+      <p><strong>Change:</strong> {formatKsh(sale.changeGivenKsh)}</p>
+    </>
+  )}
 </div>
 
                 <div className="receipt-actions">
@@ -1975,7 +2021,7 @@ const [cashierShift, setCashierShift] = useState(null);
               <SearchBar
                 value={searchInput}
                 onChange={setSearchInput}
-                onScan={handleBarcodeScan}
+                onScan={view === "low-stock" ? undefined : handleBarcodeScan}
               />
 
               <CategoryFilter
@@ -1989,9 +2035,11 @@ const [cashierShift, setCashierShift] = useState(null);
               />
             </div>
 
-            <CashierShiftPanel user={currentUser} onShiftChange={setCashierShift} />
+            {view !== "low-stock" && (
+              <CashierShiftPanel user={currentUser} onShiftChange={setCashierShift} />
+            )}
 
-            {currentCashierHeldSales.length >
+            {view !== "low-stock" && currentCashierHeldSales.length >
               0 && (
               <section className="held-sales">
                 <div className="held-sales-header">
@@ -2135,7 +2183,7 @@ const [cashierShift, setCashierShift] = useState(null);
               </div>
             ) : (
               <>
-                <div className="catalogue-layout">
+                <div className={`catalogue-layout${view === "low-stock" ? " catalogue-layout--products-only" : ""}`}>
                 <div className="catalogue-panel">
                   <p className="catalogue-summary">
                     {view ===
@@ -2153,6 +2201,7 @@ const [cashierShift, setCashierShift] = useState(null);
                       view ===
                       "low-stock"
                     }
+                    readOnly={view === "low-stock"}
                     onAddToCart={(
                       product
                     ) =>
@@ -2176,33 +2225,7 @@ const [cashierShift, setCashierShift] = useState(null);
                     }}
                   />
                 </div>
-                <div className="payment-method-selector">
-  <label htmlFor="payment-method">
-    Payment Method
-  </label>
-
-  <select
-    id="payment-method"
-    value={paymentMethod}
-    onChange={(event) =>
-      setPaymentMethod(event.target.value)
-    }
-  >
-    <option value="Cash">
-      Cash
-    </option>
-
-    <option value="Card">
-      Card
-    </option>
-
-    <option value="M-Pesa">
-      M-Pesa
-    </option>
-  </select>
-</div>
-
-                <Cart
+                {view !== "low-stock" && <Cart
                   items={cart}
                   onIncrement={(
                     id
@@ -2231,14 +2254,29 @@ const [cashierShift, setCashierShift] = useState(null);
                       type: "CLEAR",
                     })
                   }
-                  onCheckout={
-                    completeSale
-                  }
+                  onCheckout={() => {
+                    setCheckoutError("");
+                    setCheckoutOpen(true);
+                  }}
                   checkoutDisabled={!cashierShift}
                   onHoldSale={
                     holdSale
                   }
-                />
+                />}
+                {checkoutOpen && view !== "low-stock" && (
+                  <CheckoutDialog
+                    totalKsh={toKsh(cart.reduce(
+                      (sum, item) => sum + Number(item.price) * item.quantity,
+                      0
+                    ))}
+                    error={checkoutError}
+                    onCancel={() => {
+                      setCheckoutOpen(false);
+                      setCheckoutError("");
+                    }}
+                    onComplete={completeSale}
+                  />
+                )}
               </div>
               </>
             )}
@@ -2266,6 +2304,7 @@ const [cashierShift, setCashierShift] = useState(null);
                       product,
                     })
                   }
+                  readOnly={view === "low-stock"}
                 />
               </div>
             )}

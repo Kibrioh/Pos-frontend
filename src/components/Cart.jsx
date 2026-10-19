@@ -10,10 +10,10 @@ function Cart({
   onHoldSale,
   checkoutDisabled = false,
 }) {
-  const total = items.reduce(
-    (sum, i) => sum + toKsh(i.price) * i.quantity,
+  const total = toKsh(items.reduce(
+    (sum, item) => sum + Number(item.price) * item.quantity,
     0
-  );
+  ));
 
   const itemCount = items.reduce(
     (sum, i) => sum + i.quantity,
@@ -76,8 +76,7 @@ function Cart({
 
                 <strong>
                   {formatKsh(
-                    toKsh(item.price) *
-                      item.quantity
+                    toKsh(Number(item.price) * item.quantity)
                   )}
                 </strong>
               </li>

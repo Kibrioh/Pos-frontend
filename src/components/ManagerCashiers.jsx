@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 
+const passwordMeetsRequirements = (password) =>
+  Array.from(password).length >= 8 &&
+  /\p{Lu}/u.test(password) &&
+  /\p{Ll}/u.test(password) &&
+  /[^\p{L}\p{N}\s]/u.test(password);
+
 function ManagerCashiers() {
   const [cashiers, setCashiers] = useState([]);
   const [newName, setNewName] = useState("");
@@ -32,6 +38,13 @@ function ManagerCashiers() {
 
     if (!name || !username || !newPassword) {
       setError("Please fill in all cashier details.");
+      return;
+    }
+
+    if (!passwordMeetsRequirements(newPassword)) {
+      setError(
+        "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a special character."
+      );
       return;
     }
 
@@ -89,12 +102,22 @@ function ManagerCashiers() {
             placeholder="Username"
           />
 
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Password (at least 8 characters)"
-          />
+          <div className="cashier-password-field">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                setError("");
+              }}
+              placeholder="Create a password"
+              autoComplete="new-password"
+              aria-describedby="cashier-password-help"
+            />
+            <small id="cashier-password-help" className="cashier-password-help">
+              At least 8 characters, with uppercase, lowercase, and a special character.
+            </small>
+          </div>
 
           {error && <p className="login-error">{error}</p>}
 
