@@ -100,10 +100,11 @@ function App() {
     useState({});
 
   const [heldCarts, setHeldCarts] = useState([]);
-const [sale, setSale] = useState(null);
-const [checkoutOpen, setCheckoutOpen] = useState(false);
-const [checkoutError, setCheckoutError] = useState("");
-const [cashierShift, setCashierShift] = useState(null);
+  const [sale, setSale] = useState(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [cashierShift, setCashierShift] = useState(null);
+  const [cashierShiftRefreshKey, setCashierShiftRefreshKey] = useState(0);
   const [sessionSales, setSessionSales] =
     useState([]);
   const [managerSalesRevision, setManagerSalesRevision] = useState(0);
@@ -536,6 +537,8 @@ const [cashierShift, setCashierShift] = useState(null);
       return false;
     }
 
+    setCashierShiftRefreshKey((current) => current + 1);
+
     const saleNumber = String(serverSale.id).padStart(6, "0");
     const totalKsh = toKsh(serverSale.total_amount);
     const paymentMethodLabel = {
@@ -697,6 +700,22 @@ const [cashierShift, setCashierShift] = useState(null);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ledger, setLedger] = useState([]);
+  const [printOrder, setPrintOrder] = useState(null);
+
+  useEffect(() => {
+    if (!printOrder) return undefined;
+
+    document.body.classList.add("printing-history-receipt");
+    const finishPrinting = () => setPrintOrder(null);
+    const printTimer = window.setTimeout(() => window.print(), 100);
+    window.addEventListener("afterprint", finishPrinting, { once: true });
+
+    return () => {
+      window.clearTimeout(printTimer);
+      window.removeEventListener("afterprint", finishPrinting);
+      document.body.classList.remove("printing-history-receipt");
+    };
+  }, [printOrder]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -805,7 +824,7 @@ const [cashierShift, setCashierShift] = useState(null);
             id: m.id,
             type: m.movement_type,
             productTitle: titles[m.product_id] || "Product #" + m.product_id,
-            user: names[m.user_id] || "user " + m.user_id,
+            user: m.user_name || names[m.user_id] || "user " + m.user_id,
             createdAt: m.created_at,
             quantity: Math.abs(m.quantity_delta),
             before: m.stock_before,
@@ -1759,6 +1778,13 @@ const [cashierShift, setCashierShift] = useState(null);
                             )}
                           </div>
                         </details>
+                        <button
+                          className="cashier-sale-print-button"
+                          type="button"
+                          onClick={() => setPrintOrder(order)}
+                        >
+                          <span aria-hidden="true">▣</span> Print this receipt
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -1815,7 +1841,7 @@ const [cashierShift, setCashierShift] = useState(null);
                         </h2>
 
                         <p>
-                          Cashier: {entry.user}
+                          {entry.type === "sale" ? "Cashier" : "Recorded by"}: {entry.user}
                         </p>
 
                         <p>
@@ -2036,7 +2062,11 @@ const [cashierShift, setCashierShift] = useState(null);
             </div>
 
             {view !== "low-stock" && (
-              <CashierShiftPanel user={currentUser} onShiftChange={setCashierShift} />
+              <CashierShiftPanel
+                user={currentUser}
+                onShiftChange={setCashierShift}
+                refreshKey={cashierShiftRefreshKey}
+              />
             )}
 
             {view !== "low-stock" && currentCashierHeldSales.length >
@@ -2310,6 +2340,50 @@ const [cashierShift, setCashierShift] = useState(null);
             )}
           </section>
         </main>
+      )}
+
+      {printOrder && (
+        <section className="history-print-receipt" aria-label="Printable sales receipt">
+          <header>
+            <h1>TechPoint POS</h1>
+            <p>Sales receipt</p>
+          </header>
+          <hr />
+          <p><strong>Receipt:</strong> {printOrder.receiptNumber}</p>
+          <p><strong>Order:</strong> {printOrder.orderId}</p>
+          <p><strong>Date:</strong> {new Date(printOrder.createdAt).toLocaleString()}</p>
+          <p><strong>Cashier:</strong> {printOrder.cashier?.name || printOrder.cashier || "—"}</p>
+          <p><strong>Payment:</strong> {printOrder.paymentMethod}</p>
+          <hr />
+          <ul>
+            {printOrder.items.map((item) => (
+              <li key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.quantity} × {formatKsh(item.unitPriceKsh)}</small>
+                </div>
+                <strong>{formatKsh(item.lineTotalKsh)}</strong>
+              </li>
+            ))}
+          </ul>
+          <hr />
+          <p className="history-print-total"><strong>Total</strong><strong>{formatKsh(printOrder.totalKsh)}</strong></p>
+          {printOrder.amountTenderedKsh != null && (
+            <>
+              <p><strong>Cash received:</strong> {formatKsh(printOrder.amountTenderedKsh)}</p>
+              <p><strong>Change:</strong> {formatKsh(printOrder.changeGivenKsh)}</p>
+            </>
+          )}
+          {printOrder.returns.length > 0 && (
+            <>
+              <hr />
+              <p><strong>Refunds:</strong> {formatKsh(printOrder.returns.reduce((sum, refund) => sum + refund.refundTotalKsh, 0))}</p>
+              <p><strong>Net after refunds:</strong> {formatKsh(printOrder.netAfterRefundsKsh)}</p>
+            </>
+          )}
+          <hr />
+          <p className="history-print-thanks">Thank you for shopping with us.</p>
+        </section>
       )}
     </div>
   );

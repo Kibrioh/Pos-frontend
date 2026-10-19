@@ -15,11 +15,13 @@ function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
       </button>
 
       <div className="product-details-content">
-        <img
-          src={product.thumbnail}
-          alt={product.title}
-          className="product-details-image"
-        />
+        <div className="product-details-image-frame">
+          <img
+            src={product.thumbnail}
+            alt={product.title}
+            className="product-details-image"
+          />
+        </div>
 
         <div className="product-details-info">
           <p className="product-category">

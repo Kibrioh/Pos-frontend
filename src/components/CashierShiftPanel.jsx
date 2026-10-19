@@ -4,12 +4,9 @@ import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 
 const toBaseAmount = (value) => Number(value || 0) / USD_TO_KSH;
 
-function CashierShiftPanel({ user, onShiftChange }) {
+function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
   const [shift, setShift] = useState(null);
   const [closingCash, setClosingCash] = useState("");
-  const [movementDirection, setMovementDirection] = useState("in");
-  const [movementAmount, setMovementAmount] = useState("");
-  const [movementNote, setMovementNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [closeResult, setCloseResult] = useState(null);
@@ -41,32 +38,7 @@ function CashierShiftPanel({ user, onShiftChange }) {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
-
-  const addCashMovement = async (event) => {
-    event.preventDefault();
-    if (!shift) return;
-    setBusy(true);
-    setError("");
-    try {
-      await apiFetch(`/shifts/${shift.id}/cash-movements`, {
-        method: "POST",
-        body: JSON.stringify({
-          direction: movementDirection,
-          amount: toBaseAmount(movementAmount),
-          note: movementNote,
-        }),
-      });
-      const updated = await apiFetch("/shifts/current");
-      acceptShift(updated);
-      setMovementAmount("");
-      setMovementNote("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, [user?.id, refreshKey]);
 
   const closeShift = async (event) => {
     event.preventDefault();
@@ -112,24 +84,13 @@ function CashierShiftPanel({ user, onShiftChange }) {
           <p className="shift-open-summary">
             Opened {new Date(shift.opened_at).toLocaleString()} · Opening float {formatKsh(toKsh(shift.opening_cash))}
           </p>
-          <form className="shift-inline-form" onSubmit={addCashMovement}>
-            <label>
-              Till movement
-              <select value={movementDirection} onChange={(event) => setMovementDirection(event.target.value)}>
-                <option value="in">Cash in</option>
-                <option value="out">Cash out</option>
-              </select>
-            </label>
-            <label>
-              Amount (KSh)
-              <input type="number" min="0.01" step="0.01" value={movementAmount} onChange={(event) => setMovementAmount(event.target.value)} required />
-            </label>
-            <label>
-              Reason
-              <input value={movementNote} onChange={(event) => setMovementNote(event.target.value)} maxLength="240" required />
-            </label>
-            <button className="button-secondary" disabled={busy}>Record movement</button>
-          </form>
+          <div className="shift-close-result" role="status">
+            Expected till cash {formatKsh(toKsh(shift.expected_cash))}
+            <button className="button-secondary" type="button" onClick={refreshShift}>Refresh</button>
+          </div>
+          <p className="shift-open-summary">
+            Cash sales are added automatically. Ask the manager to record any separate cash added to or removed from the till.
+          </p>
           <form className="shift-inline-form shift-close-form" onSubmit={closeShift}>
             <label>
               Counted cash at close (KSh)

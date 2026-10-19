@@ -7,6 +7,11 @@ function ManagerShifts() {
   const [cashiers, setCashiers] = useState([]);
   const [cashierId, setCashierId] = useState("");
   const [openingFloat, setOpeningFloat] = useState("");
+  const [movementShiftId, setMovementShiftId] = useState("");
+  const [movementDirection, setMovementDirection] = useState("out");
+  const [movementAmount, setMovementAmount] = useState("");
+  const [movementNote, setMovementNote] = useState("");
+  const [movementError, setMovementError] = useState("");
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,6 +58,41 @@ function ManagerShifts() {
     }
   };
 
+  const recordCashMovement = async (event) => {
+    event.preventDefault();
+    setMovementError("");
+    setBusy(true);
+    try {
+      await apiFetch(`/shifts/${movementShiftId}/cash-movements`, {
+        method: "POST",
+        body: JSON.stringify({
+          direction: movementDirection,
+          amount: Number(movementAmount) / USD_TO_KSH,
+          note: movementNote,
+        }),
+      });
+      setMovementAmount("");
+      setMovementNote("");
+      await reload();
+    } catch (err) {
+      setMovementError(err.message);
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openShifts = shifts.filter((shift) => shift.status === "open");
+  const selectedMovementShift = openShifts.find(
+    (shift) => String(shift.id) === movementShiftId
+  );
+  const availableCashKsh = selectedMovementShift
+    ? toKsh(selectedMovementShift.expected_cash)
+    : 0;
+  const cashOutExceedsBalance =
+    movementDirection === "out"
+    && Number(movementAmount || 0) > availableCashKsh;
+
   return (
     <main className="manager-content">
       <div className="manager-page-heading">
@@ -87,7 +127,62 @@ function ManagerShifts() {
       </section>
 
       <section className="manager-section">
-        <div className="section-heading-row"><div><h3>Recent shifts</h3><p>Includes open and closed till sessions.</p></div></div>
+        <div className="section-heading-row"><div><h3>Record till adjustment</h3><p>Use this only for cash added or removed outside normal sales and refunds. Cash sales are counted automatically.</p></div></div>
+        <form className="shift-inline-form" onSubmit={recordCashMovement}>
+          <label>
+            Open till
+            <select value={movementShiftId} onChange={(event) => setMovementShiftId(event.target.value)} required>
+              <option value="">Select a cashier shift</option>
+              {openShifts.map((shift) => (
+                <option key={shift.id} value={shift.id}>{shift.cashier || `User ${shift.user_id}`}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Direction
+            <select value={movementDirection} onChange={(event) => {
+              setMovementDirection(event.target.value);
+              setMovementError("");
+            }}>
+              <option value="in">Cash added</option>
+              <option value="out">Cash removed</option>
+            </select>
+          </label>
+          <label>
+            Amount (KSh)
+            <input
+              type="number"
+              min="0.01"
+              max={movementDirection === "out" ? availableCashKsh : undefined}
+              step="0.01"
+              value={movementAmount}
+              onChange={(event) => {
+                setMovementAmount(event.target.value);
+                setMovementError("");
+              }}
+              required
+            />
+          </label>
+          <label>
+            Reason
+            <input value={movementNote} onChange={(event) => setMovementNote(event.target.value)} maxLength="240" required />
+          </label>
+          <button className="button-secondary" disabled={busy || !movementShiftId || cashOutExceedsBalance}>
+            {busy ? "Recording…" : "Record adjustment"}
+          </button>
+        </form>
+        {movementDirection === "out" && selectedMovementShift && (
+          <p className="shift-cash-available">Cash currently available: {formatKsh(availableCashKsh)}</p>
+        )}
+        {movementError && <p className="form-error" role="alert">{movementError}</p>}
+        {cashOutExceedsBalance && (
+          <p className="form-error" role="alert">Cash out cannot exceed the current till balance.</p>
+        )}
+        {openShifts.length === 0 && <p>There are no open shifts to adjust.</p>}
+      </section>
+
+      <section className="manager-section">
+        <div className="section-heading-row"><div><h3>Recent shifts</h3><p>Includes open and closed till sessions.</p></div><button className="button-secondary" type="button" onClick={reload} disabled={busy}>Refresh shifts</button></div>
         {loadError ? <p className="form-error" role="alert">{loadError}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
           <div className="shift-list">
             {shifts.map((shift) => (
@@ -96,7 +191,7 @@ function ManagerShifts() {
                   <div><h4>{shift.cashier || `User ${shift.user_id}`}</h4><p>Opened {new Date(shift.opened_at).toLocaleString()}</p>{shift.closed_at && <p>Closed {new Date(shift.closed_at).toLocaleString()}</p>}</div>
                   <span className={`shift-status${shift.status === "open" ? " is-open" : ""}`}>{shift.status}</span>
                 </div>
-                <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "closed" && <><span>Expected <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Variance <strong>{formatKsh(toKsh(shift.cash_variance))}</strong></span></>}</div>
+                <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "open" && <span>Expected now <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span>}{shift.status === "closed" && <><span>Expected <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Variance <strong>{formatKsh(toKsh(shift.cash_variance))}</strong></span></>}</div>
                 {shift.cash_movements?.length > 0 && <details className="shift-movements"><summary>{shift.cash_movements.length} till movements</summary><ul>{shift.cash_movements.map((movement) => <li key={movement.id}>{movement.direction === "in" ? "Cash in" : "Cash out"} · {formatKsh(toKsh(movement.amount))} · {movement.note}</li>)}</ul></details>}
               </article>
             ))}

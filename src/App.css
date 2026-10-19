@@ -839,6 +839,10 @@ button:focus {
 }
 
 .shift-close-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 14px;
   padding: 12px 14px;
   border-radius: 9px;
@@ -2569,6 +2573,136 @@ button:focus {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.cashier-sale-print-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  margin-top: 14px;
+  padding: 8px 13px;
+  border: 1px solid #b9cbbb;
+  border-radius: 9px;
+  background: #f4f8f3;
+  color: #315c3d;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cashier-sale-print-button:hover {
+  background: #e9f2e7;
+}
+
+.cashier-sale-print-button:focus-visible {
+  outline: 3px solid rgb(71 118 83 / 25%);
+  outline-offset: 2px;
+}
+
+.history-print-receipt {
+  display: none;
+}
+
+.history-print-receipt header {
+  text-align: center;
+}
+
+.history-print-receipt h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.history-print-receipt header p,
+.history-print-receipt p {
+  margin: 7px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.history-print-receipt hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px dashed #788078;
+}
+
+.history-print-receipt ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-print-receipt li,
+.history-print-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.history-print-receipt li > div {
+  display: grid;
+  gap: 3px;
+}
+
+.history-print-receipt li strong,
+.history-print-receipt li small {
+  font-size: 11px;
+}
+
+.history-print-receipt li strong,
+.history-print-total > strong:last-child {
+  text-align: right;
+}
+
+.history-print-total {
+  font-size: 14px !important;
+}
+
+.history-print-thanks {
+  margin-top: 16px !important;
+  text-align: center;
+}
+
+.shift-cash-available {
+  margin: 10px 0 0;
+  color: #526254;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+@media print {
+  body.printing-history-receipt * {
+    visibility: hidden !important;
+  }
+
+  body.printing-history-receipt .history-print-receipt,
+  body.printing-history-receipt .history-print-receipt * {
+    visibility: visible !important;
+  }
+
+  body.printing-history-receipt .history-print-receipt {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    display: block !important;
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+    color: #111 !important;
+    font-family: Arial, sans-serif !important;
+    box-shadow: none !important;
+  }
+
+  @page {
+    margin: 8mm;
+  }
 }
 
 .cashier-sale-detail-content {
