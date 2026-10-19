@@ -20,10 +20,14 @@ function ManagerShifts() {
     try {
       const [shiftData, userData] = await Promise.all([
         apiFetch("/shifts"),
-        apiFetch("/auth/users"),
+        apiFetch("/auth/users?role=cashier"),
       ]);
       setShifts(Array.isArray(shiftData) ? shiftData : []);
-      setCashiers((userData.users || []).filter((user) => user.role === "cashier"));
+      setCashiers(
+        (userData.users || []).filter(
+          (user) => String(user.role || "").trim().toLowerCase() === "cashier"
+        )
+      );
       setLoadError("");
     } catch (err) {
       setLoadError(err.message);
