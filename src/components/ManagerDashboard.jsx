@@ -168,15 +168,16 @@ function ManagerDashboard() {
   const [range, setRange] = useState(30);
   const [activeTab, setActiveTab] = useState("overview");
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedRange, setLoadedRange] = useState(null);
   const [error, setError] = useState("");
   const [shifts, setShifts] = useState([]);
-  const [shiftsLoading, setShiftsLoading] = useState(false);
+  const [shiftsLoading, setShiftsLoading] = useState(true);
   const [shiftsError, setShiftsError] = useState("");
   const [closingShiftId, setClosingShiftId] = useState(null);
   const [closingCash, setClosingCash] = useState("");
   const [closingBusy, setClosingBusy] = useState(false);
   const [closingError, setClosingError] = useState("");
+  const loading = loadedRange !== range;
 
   useEffect(() => {
     let active = true;
@@ -188,18 +189,16 @@ function ManagerDashboard() {
       end_date: toDateKey(end),
     }).toString();
 
-    setLoading(true);
-    setError("");
-
-    Promise.all([
-      apiFetch(`/reports/dashboard?${query}`),
-      apiFetch(`/reports/gross-margin?${query}`),
-      apiFetch(`/reports/sales-by-date?${query}`),
-      apiFetch(`/reports/payment-methods?${query}`),
-      apiFetch(`/reports/best-selling-products?${query}`),
-      apiFetch(`/reports/sales-by-cashier?${query}`),
-    ])
-      .then(([dashboard, margin, revenueByDate, paymentMethods, bestSellers, salesByCashier]) => {
+    const loadDashboard = async () => {
+      try {
+        const [dashboard, margin, revenueByDate, paymentMethods, bestSellers, salesByCashier] = await Promise.all([
+          apiFetch(`/reports/dashboard?${query}`),
+          apiFetch(`/reports/gross-margin?${query}`),
+          apiFetch(`/reports/sales-by-date?${query}`),
+          apiFetch(`/reports/payment-methods?${query}`),
+          apiFetch(`/reports/best-selling-products?${query}`),
+          apiFetch(`/reports/sales-by-cashier?${query}`),
+        ]);
         if (!active) return;
         setData({
           dashboard,
@@ -209,13 +208,18 @@ function ManagerDashboard() {
           bestSellers: bestSellers.results || [],
           salesByCashier: salesByCashier.results || [],
         });
-      })
-      .catch((requestError) => {
-        if (active) setError(requestError.message || "Could not load dashboard data.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+        setError("");
+      } catch (requestError) {
+        if (active) {
+          setData(null);
+          setError(requestError.message || "Could not load dashboard data.");
+        }
+      } finally {
+        if (active) setLoadedRange(range);
+      }
+    };
+
+    loadDashboard();
 
     return () => {
       active = false;
@@ -223,8 +227,6 @@ function ManagerDashboard() {
   }, [range]);
 
   const loadShifts = useCallback(async () => {
-    setShiftsLoading(true);
-    setShiftsError("");
     try {
       const result = await apiFetch("/shifts");
       setShifts(Array.isArray(result) ? result : []);
@@ -236,8 +238,22 @@ function ManagerDashboard() {
   }, []);
 
   useEffect(() => {
-    loadShifts();
-  }, [loadShifts]);
+    let active = true;
+    apiFetch("/shifts")
+      .then((result) => {
+        if (active) setShifts(Array.isArray(result) ? result : []);
+      })
+      .catch((requestError) => {
+        if (active) setShiftsError(requestError.message || "Could not load cashier shifts.");
+      })
+      .finally(() => {
+        if (active) setShiftsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const closeCashierShift = async (event, shift) => {
     event.preventDefault();
@@ -250,6 +266,8 @@ function ManagerDashboard() {
       });
       setClosingShiftId(null);
       setClosingCash("");
+      setShiftsLoading(true);
+      setShiftsError("");
       await loadShifts();
     } catch (requestError) {
       setClosingError(requestError.message || "Could not close this shift.");
@@ -291,7 +309,7 @@ function ManagerDashboard() {
           </div>
           <label className="performance-range-control">
             <span>Reporting period</span>
-            <select value={range} onChange={(event) => setRange(Number(event.target.value))}>
+            <select value={range} onChange={(event) => { setError(""); setRange(Number(event.target.value)); }}>
               {RANGE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
@@ -490,6 +508,7 @@ function ManagerDashboard() {
             )}
           </section>
         </div>
+        </div>
         )}
 
         {activeTab === "shifts" && (
@@ -500,7 +519,7 @@ function ManagerDashboard() {
                   <h2>Open cashier shifts</h2>
                   <p>{openShifts.length} till{openShifts.length === 1 ? "" : "s"} currently open</p>
                 </div>
-                <button className="performance-refresh-button" type="button" onClick={loadShifts} disabled={shiftsLoading || closingBusy}>
+                <button className="performance-refresh-button" type="button" onClick={() => { setShiftsLoading(true); setShiftsError(""); loadShifts(); }} disabled={shiftsLoading || closingBusy}>
                   {shiftsLoading ? "Refreshing…" : "Refresh"}
                 </button>
               </div>
