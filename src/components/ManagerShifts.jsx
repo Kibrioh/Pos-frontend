@@ -25,6 +25,10 @@ function ManagerShifts() {
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [closingShiftId, setClosingShiftId] = useState(null);
+  const [closingCash, setClosingCash] = useState("");
+  const [closingBusy, setClosingBusy] = useState(false);
+  const [closingError, setClosingError] = useState("");
 
   const reload = useCallback(async () => {
     try {
@@ -44,7 +48,30 @@ function ManagerShifts() {
     }
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      apiFetch("/shifts"),
+      apiFetch("/auth/users?role=cashier"),
+    ])
+      .then(([shiftData, userData]) => {
+        if (!active) return;
+        setShifts(Array.isArray(shiftData) ? shiftData : []);
+        setCashiers(
+          (userData.users || []).filter(
+            (user) => String(user.role || "").trim().toLowerCase() === "cashier"
+          )
+        );
+        setLoadError("");
+      })
+      .catch((requestError) => {
+        if (active) setLoadError(requestError.message || "Could not load cashier shifts.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const openCashierIds = new Set(
     shifts.filter((shift) => shift.status === "open").map((shift) => shift.user_id)
@@ -95,6 +122,25 @@ function ManagerShifts() {
       await reload();
     } finally {
       setBusy(false);
+    }
+  };
+
+  const closeShift = async (event, shift) => {
+    event.preventDefault();
+    setClosingBusy(true);
+    setClosingError("");
+    try {
+      await apiFetch(`/shifts/${shift.id}/close`, {
+        method: "POST",
+        body: JSON.stringify({ closing_cash: Number(closingCash) / USD_TO_KSH }),
+      });
+      setClosingShiftId(null);
+      setClosingCash("");
+      await reload();
+    } catch (requestError) {
+      setClosingError(requestError.message || "Could not close this shift.");
+    } finally {
+      setClosingBusy(false);
     }
   };
 
@@ -199,7 +245,7 @@ function ManagerShifts() {
       </section>
 
       <section className="manager-section">
-        <div className="section-heading-row"><div><h3>Recent shifts</h3><p>Includes open and closed till sessions.</p></div><button className="button-secondary" type="button" onClick={reload} disabled={busy}>Refresh shifts</button></div>
+        <div className="section-heading-row"><div><h3>Open and recent shifts</h3><p>Reconcile and close open tills here; review completed cash counts below.</p></div><button className="button-secondary" type="button" onClick={reload} disabled={busy || closingBusy}>Refresh shifts</button></div>
         {loadError ? <p className="form-error" role="alert">{loadError}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
           <div className="shift-list">
             {shifts.map((shift) => (
@@ -209,6 +255,27 @@ function ManagerShifts() {
                   <span className={`shift-status${shift.status === "open" ? " is-open" : ""}`}>{shift.status}</span>
                 </div>
                 <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "open" && <span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span>}{shift.status === "closed" && <><span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted cash <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Cash difference <strong>{cashDifferenceLabel(shift.cash_variance)}</strong></span></>}</div>
+                {shift.status === "open" && (closingShiftId === shift.id ? (
+                  <form className="shift-inline-form shift-close-form" onSubmit={(event) => closeShift(event, shift)}>
+                    <label>
+                      Counted cash (KSh)
+                      <input type="number" min="0" step="0.01" value={closingCash} onChange={(event) => setClosingCash(event.target.value)} required />
+                    </label>
+                    <div className="shift-close-actions">
+                      <button className="shift-close-submit" type="submit" disabled={closingBusy}>
+                        {closingBusy ? "Closing…" : "Reconcile & close shift"}
+                      </button>
+                      <button className="button-secondary" type="button" onClick={() => { setClosingShiftId(null); setClosingCash(""); setClosingError(""); }} disabled={closingBusy}>
+                        Cancel
+                      </button>
+                    </div>
+                    {closingError && <p className="form-error" role="alert">{closingError}</p>}
+                  </form>
+                ) : (
+                  <button className="shift-close-button" type="button" onClick={() => { setClosingShiftId(shift.id); setClosingCash(""); setClosingError(""); }}>
+                    Close shift
+                  </button>
+                ))}
                 {shift.cash_movements?.length > 0 && <details className="shift-movements"><summary>{shift.cash_movements.length} till movements</summary><ul>{shift.cash_movements.map((movement) => <li key={movement.id}>{movement.direction === "in" ? "Cash in" : "Cash out"} · {formatKsh(toKsh(movement.amount))} · {movement.note}</li>)}</ul></details>}
               </article>
             ))}
