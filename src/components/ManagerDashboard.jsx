@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { apiFetch } from "../api/client";
-import { formatKsh, toKsh } from "../utils/formatPrice";
+import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 
 const RANGE_OPTIONS = [
   { value: 7, label: "Last 7 days" },
@@ -166,9 +166,17 @@ function PaymentMethodChart({ rows }) {
 
 function ManagerDashboard() {
   const [range, setRange] = useState(30);
+  const [activeTab, setActiveTab] = useState("overview");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [shifts, setShifts] = useState([]);
+  const [shiftsLoading, setShiftsLoading] = useState(false);
+  const [shiftsError, setShiftsError] = useState("");
+  const [closingShiftId, setClosingShiftId] = useState(null);
+  const [closingCash, setClosingCash] = useState("");
+  const [closingBusy, setClosingBusy] = useState(false);
+  const [closingError, setClosingError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -214,12 +222,49 @@ function ManagerDashboard() {
     };
   }, [range]);
 
+  const loadShifts = useCallback(async () => {
+    setShiftsLoading(true);
+    setShiftsError("");
+    try {
+      const result = await apiFetch("/shifts");
+      setShifts(Array.isArray(result) ? result : []);
+    } catch (requestError) {
+      setShiftsError(requestError.message || "Could not load cashier shifts.");
+    } finally {
+      setShiftsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadShifts();
+  }, [loadShifts]);
+
+  const closeCashierShift = async (event, shift) => {
+    event.preventDefault();
+    setClosingBusy(true);
+    setClosingError("");
+    try {
+      await apiFetch(`/shifts/${shift.id}/close`, {
+        method: "POST",
+        body: JSON.stringify({ closing_cash: Number(closingCash) / USD_TO_KSH }),
+      });
+      setClosingShiftId(null);
+      setClosingCash("");
+      await loadShifts();
+    } catch (requestError) {
+      setClosingError(requestError.message || "Could not close this shift.");
+    } finally {
+      setClosingBusy(false);
+    }
+  };
+
   const series = useMemo(
     () => makeDailySeries(data?.revenueByDate || [], range),
     [data, range]
   );
   const dashboard = data?.dashboard;
   const margin = data?.margin;
+  const totalSalesKsh = toKsh(dashboard?.total_sales);
   const transactionCount = Number(dashboard?.transaction_count || 0);
   const revenueKsh = toKsh(dashboard?.total_revenue);
   const avgSaleKsh = transactionCount ? Math.round(revenueKsh / transactionCount) : 0;
@@ -231,10 +276,13 @@ function ManagerDashboard() {
   const maxQuantity = Math.max(...bestSellers.map((product) => Number(product.quantity_sold)), 1);
   const salesByCashier = (data?.salesByCashier || []).slice(0, 5);
   const maxCashierRevenue = Math.max(...salesByCashier.map((cashier) => toKsh(cashier.total_revenue)), 1);
+  const openShifts = shifts.filter((shift) => shift.status === "open");
+  const closedShifts = shifts.filter((shift) => shift.status === "closed").slice(0, 6);
 
   return (
     <div className="manager-dashboard manager-dashboard--performance">
       <main className="manager-content performance-dashboard">
+        <section className="performance-workspace" aria-label="Interactive business dashboard">
         <div className="performance-heading">
           <div>
             <p className="performance-eyebrow">TECHPOINT · BUSINESS OVERVIEW</p>
@@ -251,9 +299,41 @@ function ManagerDashboard() {
           </label>
         </div>
 
+        <div className="performance-tabs" role="tablist" aria-label="Dashboard sections">
+          <button
+            id="performance-overview-tab"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "overview"}
+            aria-controls="performance-overview-panel"
+            className={activeTab === "overview" ? "is-active" : ""}
+            onClick={() => setActiveTab("overview")}
+          >
+            Overview
+          </button>
+          <button
+            id="performance-shifts-tab"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "shifts"}
+            aria-controls="performance-shifts-panel"
+            className={activeTab === "shifts" ? "is-active" : ""}
+            onClick={() => setActiveTab("shifts")}
+          >
+            Shifts <span>{openShifts.length}</span>
+          </button>
+        </div>
+
         {error && <p className="performance-error" role="alert">Dashboard unavailable: {error}</p>}
 
+        {activeTab === "overview" && (
+        <div id="performance-overview-panel" className="performance-overview" role="tabpanel" aria-labelledby="performance-overview-tab">
         <section className="performance-kpis" aria-label="Sales summary">
+          <article className="performance-kpi">
+            <span>Total sales</span>
+            <strong>{loading ? "…" : formatKsh(totalSalesKsh)}</strong>
+            <small>Before recorded refunds</small>
+          </article>
           <article className="performance-kpi performance-kpi--primary">
             <span>Net sales</span>
             <strong>{loading ? "…" : formatKsh(revenueKsh)}</strong>
@@ -280,6 +360,9 @@ function ManagerDashboard() {
           <div><span>Active products</span><strong>{loading ? "…" : Number(dashboard?.product_count || 0).toLocaleString("en-KE")}</strong></div>
           <div><span>Cashiers</span><strong>{loading ? "…" : Number(dashboard?.cashier_count || 0).toLocaleString("en-KE")}</strong></div>
           <div><span>Low-stock alerts</span><strong className={dashboard?.low_stock_count ? "has-alert" : ""}>{loading ? "…" : Number(dashboard?.low_stock_count || 0).toLocaleString("en-KE")}</strong></div>
+          <button type="button" onClick={() => setActiveTab("shifts")} aria-label={`${openShifts.length} open cashier shifts. View shifts`}>
+            <span>Open shifts</span><strong>{shiftsLoading ? "…" : openShifts.length.toLocaleString("en-KE")}</strong>
+          </button>
         </section>
 
         <div className="performance-grid">
@@ -407,6 +490,96 @@ function ManagerDashboard() {
             )}
           </section>
         </div>
+        )}
+
+        {activeTab === "shifts" && (
+          <div id="performance-shifts-panel" className="performance-shifts" role="tabpanel" aria-labelledby="performance-shifts-tab">
+            <section className="performance-panel performance-panel--shift-list">
+              <div className="performance-panel-heading">
+                <div>
+                  <h2>Open cashier shifts</h2>
+                  <p>{openShifts.length} till{openShifts.length === 1 ? "" : "s"} currently open</p>
+                </div>
+                <button className="performance-refresh-button" type="button" onClick={loadShifts} disabled={shiftsLoading || closingBusy}>
+                  {shiftsLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+              {shiftsError && <p className="performance-error" role="alert">{shiftsError}</p>}
+              {shiftsLoading && shifts.length === 0 ? (
+                <p className="performance-empty">Loading cashier shifts…</p>
+              ) : openShifts.length === 0 ? (
+                <p className="performance-empty">There are no open cashier shifts.</p>
+              ) : (
+                <div className="performance-shift-list">
+                  {openShifts.map((shift) => (
+                    <article className="performance-shift-card" key={shift.id}>
+                      <div className="performance-shift-main">
+                        <div>
+                          <span className="performance-shift-status">Open</span>
+                          <h3>{shift.cashier || `Cashier ${shift.user_id}`}</h3>
+                          <p>Opened {new Date(shift.opened_at).toLocaleString()}</p>
+                        </div>
+                        <div className="performance-shift-cash">
+                          <span>Expected till cash</span>
+                          <strong>{formatKsh(toKsh(shift.expected_cash))}</strong>
+                        </div>
+                      </div>
+                      {closingShiftId === shift.id ? (
+                        <form className="performance-close-form" onSubmit={(event) => closeCashierShift(event, shift)}>
+                          <label>
+                            Counted cash (KSh)
+                            <input type="number" min="0" step="0.01" value={closingCash} onChange={(event) => setClosingCash(event.target.value)} required />
+                          </label>
+                          <button className="performance-close-submit" type="submit" disabled={closingBusy}>
+                            {closingBusy ? "Closing…" : "Reconcile & close shift"}
+                          </button>
+                          <button className="performance-close-cancel" type="button" onClick={() => { setClosingShiftId(null); setClosingCash(""); setClosingError(""); }} disabled={closingBusy}>
+                            Cancel
+                          </button>
+                          {closingError && <p className="performance-error" role="alert">{closingError}</p>}
+                        </form>
+                      ) : (
+                        <button className="performance-close-trigger" type="button" onClick={() => { setClosingShiftId(shift.id); setClosingCash(""); setClosingError(""); }}>
+                          Close shift
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="performance-panel performance-panel--closed-shifts">
+              <div className="performance-panel-heading">
+                <div>
+                  <h2>Recently closed shifts</h2>
+                  <p>Review counted cash and reconciliation results</p>
+                </div>
+              </div>
+              {closedShifts.length === 0 ? (
+                <p className="performance-empty">Closed shifts will appear here.</p>
+              ) : (
+                <div className="performance-table-scroll">
+                  <table className="performance-table">
+                    <thead><tr><th>Cashier</th><th>Closed</th><th>Expected</th><th>Counted</th><th>Difference</th></tr></thead>
+                    <tbody>
+                      {closedShifts.map((shift) => (
+                        <tr key={shift.id}>
+                          <th scope="row">{shift.cashier || `Cashier ${shift.user_id}`}</th>
+                          <td>{shift.closed_at ? new Date(shift.closed_at).toLocaleString() : "—"}</td>
+                          <td>{formatKsh(toKsh(shift.expected_cash))}</td>
+                          <td>{formatKsh(toKsh(shift.closing_cash))}</td>
+                          <td>{formatKsh(toKsh(shift.cash_variance))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+        </section>
       </main>
     </div>
   );

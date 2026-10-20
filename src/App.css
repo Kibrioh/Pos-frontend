@@ -2946,6 +2946,14 @@ button:focus {
   padding: 32px 0 60px;
 }
 
+.performance-workspace {
+  padding: 24px;
+  border: 1px solid #d8e1ed;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fff, #f8faff);
+  box-shadow: 0 16px 42px rgb(32 52 84 / 8%);
+}
+
 .performance-heading,
 .performance-panel-heading {
   display: flex;
@@ -2956,6 +2964,53 @@ button:focus {
 
 .performance-heading {
   margin-bottom: 22px;
+}
+
+.performance-tabs {
+  display: flex;
+  gap: 7px;
+  margin: 0 0 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e3eaf3;
+}
+
+.performance-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #6c7b92;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.performance-tabs button:hover {
+  background: #f1f5fb;
+  color: #314f7d;
+}
+
+.performance-tabs button.is-active {
+  border-color: #d9e4f4;
+  background: #eaf1fc;
+  color: #2f5d9e;
+}
+
+.performance-tabs button > span {
+  display: grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #d9e6f8;
+  color: #2f5d9e;
+  font-size: 10px;
 }
 
 .performance-eyebrow {
@@ -3010,7 +3065,7 @@ button:focus {
 
 .performance-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -3071,7 +3126,8 @@ button:focus {
   box-shadow: 0 5px 18px rgb(32 52 84 / 4%);
 }
 
-.performance-quick-stats > div {
+.performance-quick-stats > div,
+.performance-quick-stats > button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3080,7 +3136,24 @@ button:focus {
   padding: 10px 16px;
 }
 
-.performance-quick-stats > div + div {
+.performance-quick-stats > button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.performance-quick-stats > button:hover span,
+.performance-quick-stats > button:hover strong {
+  color: #315c99;
+}
+
+.performance-quick-stats > button:focus-visible {
+  outline: 2px solid #4777d5;
+  outline-offset: -3px;
+}
+
+.performance-quick-stats > * + * {
   border-left: 1px solid #e8edf4;
 }
 
@@ -3389,11 +3462,160 @@ button:focus {
   font-weight: 750;
 }
 
+.performance-shifts {
+  display: grid;
+  gap: 16px;
+}
+
+.performance-panel--shift-list,
+.performance-panel--closed-shifts {
+  min-height: 0;
+}
+
+.performance-refresh-button,
+.performance-close-trigger,
+.performance-close-submit,
+.performance-close-cancel {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #d4dfed;
+  border-radius: 8px;
+  background: #fff;
+  color: #385980;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.performance-refresh-button:hover,
+.performance-close-cancel:hover {
+  background: #f1f5fb;
+}
+
+.performance-refresh-button:disabled,
+.performance-close-submit:disabled,
+.performance-close-cancel:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.performance-shift-list {
+  display: grid;
+  gap: 11px;
+}
+
+.performance-shift-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e0e8f2;
+  border-radius: 11px;
+  background: #fbfcff;
+}
+
+.performance-shift-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.performance-shift-status {
+  display: inline-flex;
+  margin-bottom: 5px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: #e7f5ed;
+  color: #2f8051;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.performance-shift-main h3 {
+  color: #2e4564;
+  font-size: 15px;
+}
+
+.performance-shift-main p {
+  margin-top: 4px;
+  color: #8491a4;
+  font-size: 11px;
+}
+
+.performance-shift-cash {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+.performance-shift-cash span {
+  color: #7b8aa0;
+  font-size: 11px;
+}
+
+.performance-shift-cash strong {
+  color: #2b4568;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.performance-close-trigger,
+.performance-close-submit {
+  justify-self: start;
+  border-color: #315c99;
+  background: #315c99;
+  color: #fff;
+}
+
+.performance-close-trigger:hover,
+.performance-close-submit:hover:not(:disabled) {
+  background: #254979;
+}
+
+.performance-close-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 13px;
+  border-top: 1px solid #e7edf5;
+}
+
+.performance-close-form label {
+  display: grid;
+  min-width: 210px;
+  gap: 5px;
+  color: #61738d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.performance-close-form input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d6e0ed;
+  border-radius: 8px;
+  color: #2f4564;
+  font: inherit;
+  font-size: 13px;
+}
+
+.performance-close-form .performance-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .close-shift-page .shift-panel {
   margin-top: 0;
 }
 
 @media (max-width: 1050px) {
+  .performance-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .performance-grid {
     grid-template-columns: minmax(0, 1fr) minmax(290px, .9fr);
   }
@@ -3416,6 +3638,11 @@ button:focus {
   .manager-content.performance-dashboard {
     width: min(100% - 28px, 1480px);
     padding: 25px 0 40px;
+  }
+
+  .performance-workspace {
+    padding: 16px;
+    border-radius: 14px;
   }
 
   .performance-heading {
@@ -3447,11 +3674,12 @@ button:focus {
     padding: 0 12px;
   }
 
-  .performance-quick-stats > div {
+  .performance-quick-stats > div,
+  .performance-quick-stats > button {
     padding: 10px 2px;
   }
 
-  .performance-quick-stats > div + div {
+  .performance-quick-stats > * + * {
     border-top: 1px solid #e8edf4;
     border-left: 0;
   }
@@ -3495,6 +3723,19 @@ button:focus {
   }
 
   .performance-payment-legend {
+    width: 100%;
+  }
+
+  .performance-shift-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .performance-shift-cash {
+    text-align: left;
+  }
+
+  .performance-close-form label {
     width: 100%;
   }
 }
