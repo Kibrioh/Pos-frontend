@@ -47,8 +47,9 @@ function ProductCard({
         </p>
 
         <button
+          type="button"
           className="product-card__details-button"
-          onClick={() => onViewDetails(product)}
+          onClick={(event) => onViewDetails(product, event.currentTarget.closest(".product-card"))}
         >
           View Details
         </button>

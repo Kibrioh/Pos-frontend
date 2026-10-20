@@ -2934,6 +2934,571 @@ button:focus {
   font-family: var(--font-display);
 }
 
+/* Performance dashboard */
+.manager-dashboard--performance {
+  min-height: calc(100vh - 76px);
+  background: #edf2f9;
+}
+
+.manager-content.performance-dashboard {
+  width: min(100% - 48px, 1480px);
+  margin: 0 auto;
+  padding: 32px 0 60px;
+}
+
+.performance-heading,
+.performance-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.performance-heading {
+  margin-bottom: 22px;
+}
+
+.performance-eyebrow {
+  margin: 0 0 7px;
+  color: #476fc0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.performance-heading h1 {
+  color: #1d3154;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.12;
+}
+
+.performance-heading > div > p:last-child {
+  margin-top: 8px;
+  color: #6e7c92;
+  font-size: 14px;
+}
+
+.performance-range-control {
+  display: grid;
+  min-width: 190px;
+  gap: 6px;
+  color: #62728b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.performance-range-control select {
+  min-height: 42px;
+  padding: 0 34px 0 12px;
+  border: 1px solid #d7e0ed;
+  border-radius: 9px;
+  background: #fff;
+  color: #263b60;
+  font: inherit;
+  font-size: 14px;
+}
+
+.performance-error {
+  margin-bottom: 16px;
+  padding: 12px 15px;
+  border: 1px solid #f0c4c0;
+  border-radius: 10px;
+  background: #fff4f3;
+  color: #963b3b;
+}
+
+.performance-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.performance-kpi {
+  display: grid;
+  min-width: 0;
+  min-height: 132px;
+  align-content: center;
+  gap: 7px;
+  padding: 18px 20px;
+  border: 1px solid #dce4ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(32 52 84 / 5%);
+}
+
+.performance-kpi > span {
+  color: #697a93;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.performance-kpi strong {
+  overflow-wrap: anywhere;
+  color: #20385f;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2vw, 30px);
+  line-height: 1.2;
+}
+
+.performance-kpi small {
+  color: #8290a5;
+  font-size: 11px;
+}
+
+.performance-kpi--primary {
+  border-color: #244a80;
+  background: linear-gradient(135deg, #1e3c69, #315993);
+}
+
+.performance-kpi--primary > span,
+.performance-kpi--primary small {
+  color: #d5e2f6;
+}
+
+.performance-kpi--primary strong {
+  color: #fff;
+}
+
+.performance-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 0 18px;
+  padding: 4px 8px;
+  border: 1px solid #dce4ef;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(32 52 84 / 4%);
+}
+
+.performance-quick-stats > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 16px;
+}
+
+.performance-quick-stats > div + div {
+  border-left: 1px solid #e8edf4;
+}
+
+.performance-quick-stats span {
+  color: #73819a;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.performance-quick-stats strong {
+  color: #293f63;
+  font-size: 15px;
+}
+
+.performance-quick-stats strong.has-alert {
+  color: #c44d4d;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(330px, .8fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.performance-panel {
+  min-width: 0;
+  min-height: 250px;
+  padding: 20px;
+  border: 1px solid #dce4ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(32 52 84 / 5%);
+}
+
+.performance-panel--stock {
+  grid-column: 1 / -1;
+  min-height: auto;
+}
+
+.performance-panel-heading {
+  margin-bottom: 17px;
+}
+
+.performance-panel-heading h2 {
+  color: #263c60;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.performance-panel-heading p {
+  margin-top: 4px;
+  color: #8290a4;
+  font-size: 12px;
+}
+
+.performance-panel-heading > a {
+  color: #416cbd;
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.performance-panel-heading > a:hover {
+  color: #244a80;
+}
+
+.performance-chart-scroll,
+.performance-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.performance-revenue-chart {
+  display: block;
+  width: 100%;
+  min-width: 580px;
+  height: auto;
+}
+
+.performance-gridline {
+  stroke: #e9eef5;
+  stroke-width: 1;
+}
+
+.performance-axis-label {
+  fill: #8491a5;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+}
+
+.performance-revenue-bar {
+  fill: #4e7bd0;
+  transition: fill 120ms ease;
+}
+
+.performance-revenue-bar:hover {
+  fill: #254f99;
+}
+
+.performance-empty {
+  display: grid;
+  min-height: 170px;
+  place-items: center;
+  padding: 24px;
+  color: #8591a4;
+  font-size: 13px;
+  text-align: center;
+}
+
+.performance-payment-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 25px;
+  min-height: 175px;
+}
+
+.performance-donut {
+  position: relative;
+  display: grid;
+  width: 158px;
+  height: 158px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.performance-donut::before {
+  position: absolute;
+  inset: 19%;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+
+.performance-donut-center {
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  color: #273e65;
+}
+
+.performance-donut-center strong {
+  font-family: var(--font-display);
+  font-size: 25px;
+  line-height: 1.1;
+}
+
+.performance-donut-center span {
+  margin-top: 4px;
+  color: #8793a7;
+  font-size: 10px;
+}
+
+.performance-payment-legend {
+  display: grid;
+  width: min(100%, 215px);
+  gap: 10px;
+}
+
+.performance-payment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.performance-payment-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #5e6f88;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.performance-payment-name i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.performance-payment-row strong {
+  color: #2a4064;
+  font-size: 12px;
+}
+
+.performance-payment-row small {
+  grid-column: 1 / -1;
+  padding-left: 15px;
+  color: #909bae;
+  font-size: 10px;
+}
+
+.performance-rankings {
+  display: grid;
+  gap: 15px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.performance-ranking-heading,
+.performance-cashier-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.performance-ranking-heading strong,
+.performance-cashier-heading strong {
+  overflow: hidden;
+  color: #334967;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.performance-ranking-heading > span:last-child,
+.performance-cashier-heading > span {
+  color: #647691;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.performance-rank {
+  display: none;
+}
+
+.performance-bar-track {
+  height: 8px;
+  margin: 7px 0 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edf1f7;
+}
+
+.performance-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #416fca, #75a0e6);
+}
+
+.performance-rankings li > small,
+.performance-cashier-row > small {
+  color: #8b98aa;
+  font-size: 10px;
+}
+
+.performance-cashier-list {
+  display: grid;
+  gap: 15px;
+}
+
+.performance-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.performance-table th,
+.performance-table td {
+  padding: 12px 11px;
+  border-bottom: 1px solid #eaf0f6;
+  color: #586b85;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.performance-table thead th {
+  color: #8592a5;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.performance-table tbody th {
+  max-width: 360px;
+  overflow: hidden;
+  color: #304765;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.performance-table tbody tr:last-child th,
+.performance-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.performance-stock-alert {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: #fff0ef;
+  color: #bb4c4d;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.close-shift-page .shift-panel {
+  margin-top: 0;
+}
+
+@media (max-width: 1050px) {
+  .performance-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(290px, .9fr);
+  }
+
+  .performance-payment-content {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .performance-payment-legend {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .manager-dashboard--performance {
+    min-height: calc(100vh - 60px);
+  }
+
+  .manager-content.performance-dashboard {
+    width: min(100% - 28px, 1480px);
+    padding: 25px 0 40px;
+  }
+
+  .performance-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .performance-range-control,
+  .performance-range-control select {
+    width: 100%;
+  }
+
+  .performance-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .performance-kpi {
+    min-height: 112px;
+    padding: 14px;
+  }
+
+  .performance-kpi strong {
+    font-size: clamp(20px, 6vw, 26px);
+  }
+
+  .performance-quick-stats {
+    grid-template-columns: 1fr;
+    padding: 0 12px;
+  }
+
+  .performance-quick-stats > div {
+    padding: 10px 2px;
+  }
+
+  .performance-quick-stats > div + div {
+    border-top: 1px solid #e8edf4;
+    border-left: 0;
+  }
+
+  .performance-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .performance-panel,
+  .performance-panel--stock {
+    grid-column: auto;
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .performance-payment-content {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .performance-donut {
+    width: 132px;
+    height: 132px;
+  }
+
+  .performance-payment-legend {
+    width: min(100%, 220px);
+  }
+
+  .performance-table th,
+  .performance-table td {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 440px) {
+  .performance-payment-content {
+    flex-direction: column;
+  }
+
+  .performance-payment-legend {
+    width: 100%;
+  }
+}
+
 .sale-confirmation .receipt {
   width: min(100%, 430px);
   box-sizing: border-box;

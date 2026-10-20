@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { formatPrice } from "../utils/formatPrice";
 
-function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
+function ProductDetails({ product, anchorElement, onClose, onAddToCart, readOnly = false }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [position, setPosition] = useState(null);
+  const detailsRef = useRef(null);
 
   useEffect(() => {
     setImageFailed(false);
@@ -17,11 +20,54 @@ function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
+  useLayoutEffect(() => {
+    const placeDetails = () => {
+      const details = detailsRef.current;
+      if (!details) return;
+
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight;
+      const detailsRect = details.getBoundingClientRect();
+      const margin = 16;
+
+      if (!anchorElement || viewportWidth <= 850) {
+        setPosition({
+          left: Math.max(margin, (viewportWidth - detailsRect.width) / 2),
+          top: Math.max(margin, (viewportHeight - detailsRect.height) / 2),
+        });
+        return;
+      }
+
+      const anchorRect = anchorElement.getBoundingClientRect();
+      const gap = 16;
+      const roomRight = viewportWidth - anchorRect.right - gap - margin;
+      const roomLeft = anchorRect.left - gap - margin;
+      const placeRight = roomRight >= detailsRect.width || roomRight >= roomLeft;
+      const left = placeRight
+        ? Math.min(anchorRect.right + gap, viewportWidth - detailsRect.width - margin)
+        : Math.max(margin, anchorRect.left - detailsRect.width - gap);
+      const top = Math.min(
+        Math.max(margin, anchorRect.top + (anchorRect.height - detailsRect.height) / 2),
+        Math.max(margin, viewportHeight - detailsRect.height - margin),
+      );
+
+      setPosition({ left, top });
+    };
+
+    placeDetails();
+    window.addEventListener("resize", placeDetails);
+    window.addEventListener("scroll", placeDetails, true);
+    return () => {
+      window.removeEventListener("resize", placeDetails);
+      window.removeEventListener("scroll", placeDetails, true);
+    };
+  }, [anchorElement, product?.id]);
+
   if (!product) return null;
 
   const inStock = Number(product.stock) > 0;
 
-  return (
+  return createPortal((
     <div
       className="product-details-overlay"
       onMouseDown={(event) => {
@@ -29,10 +75,16 @@ function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
       }}
     >
       <section
+        ref={detailsRef}
         className="product-details"
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-details-title"
+        style={{
+          left: position ? `${position.left}px` : "50%",
+          top: position ? `${position.top}px` : "50%",
+          visibility: position ? "visible" : "hidden",
+        }}
       >
         <button
           type="button"
@@ -97,7 +149,7 @@ function ProductDetails({ product, onClose, onAddToCart, readOnly = false }) {
         </div>
       </section>
     </div>
-  );
+  ), document.body);
 }
 
 export default ProductDetails;

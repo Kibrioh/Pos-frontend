@@ -45,71 +45,121 @@ function makeDailySeries(rows, days) {
 }
 
 function RevenueChart({ series }) {
-  const width = 800;
-  const height = 280;
-  const left = 82;
-  const right = 780;
-  const top = 24;
-  const bottom = 222;
+  const width = Math.max(680, series.length * 18);
+  const height = 270;
+  const left = 76;
+  const right = width - 18;
+  const top = 16;
+  const bottom = height - 42;
   const maxRevenue = Math.max(...series.map((point) => point.revenue), 1);
-  const points = series.map((point, index) => {
-    const x = left + (index * (right - left)) / Math.max(series.length - 1, 1);
-    const y = bottom - (point.revenue / maxRevenue) * (bottom - top);
-    return { ...point, x, y };
-  });
-  const linePath = points
-    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
-    .join(" ");
-  const areaPath = `${linePath} L${right},${bottom} L${left},${bottom} Z`;
+  const slotWidth = (right - left) / Math.max(series.length, 1);
+  const barWidth = Math.max(4, slotWidth * 0.62);
   const labelIndexes = new Set([
     0,
-    Math.floor((series.length - 1) / 2),
+    Math.floor((series.length - 1) / 3),
+    Math.floor(((series.length - 1) * 2) / 3),
     series.length - 1,
   ]);
 
   return (
-    <div className="dashboard-chart-scroll">
+    <div className="performance-chart-scroll">
       <svg
-        className="dashboard-revenue-chart"
+        className="performance-revenue-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="Daily net revenue for the selected period"
       >
-        <defs>
-          <linearGradient id="revenue-area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#d45c3c" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#d45c3c" stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-
-        {[0, 1, 2, 3, 4].map((step) => {
-          const y = top + ((bottom - top) * step) / 4;
-          const value = maxRevenue * (1 - step / 4);
+        {[0, 1, 2, 3].map((step) => {
+          const y = top + ((bottom - top) * step) / 3;
           return (
             <g key={step}>
-              <line x1={left} x2={right} y1={y} y2={y} className="chart-gridline" />
-              <text x={left - 12} y={y + 4} textAnchor="end" className="chart-axis-label">
-                {compactKsh(value)}
+              <line x1={left} x2={right} y1={y} y2={y} className="performance-gridline" />
+              <text x={left - 10} y={y + 4} textAnchor="end" className="performance-axis-label">
+                {compactKsh(maxRevenue * (1 - step / 3))}
               </text>
             </g>
           );
         })}
 
-        <path d={areaPath} fill="url(#revenue-area)" />
-        <path d={linePath} className="dashboard-revenue-line" />
-
-        {points.map((point) => (
-          <circle key={point.date} cx={point.x} cy={point.y} r="3.2" className="dashboard-revenue-point">
-            <title>{`${point.label}: ${formatKsh(point.revenue)}`}</title>
-          </circle>
-        ))}
-
-        {points.map((point, index) => labelIndexes.has(index) && (
-          <text key={point.date} x={point.x} y={height - 18} textAnchor="middle" className="chart-axis-label">
-            {point.label}
-          </text>
-        ))}
+        {series.map((point, index) => {
+          const barHeight = (point.revenue / maxRevenue) * (bottom - top);
+          const x = left + index * slotWidth + (slotWidth - barWidth) / 2;
+          const y = bottom - barHeight;
+          return (
+            <g key={point.date}>
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={Math.max(barHeight, 2)}
+                rx={Math.min(4, barWidth / 2)}
+                className="performance-revenue-bar"
+              >
+                <title>{`${point.label}: ${formatKsh(point.revenue)}`}</title>
+              </rect>
+              {labelIndexes.has(index) && (
+                <text x={x + barWidth / 2} y={height - 14} textAnchor="middle" className="performance-axis-label">
+                  {point.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
+    </div>
+  );
+}
+
+const PAYMENT_COLORS = {
+  cash: "#4777d5",
+  card: "#e25757",
+  "m-pesa": "#35a989",
+};
+
+function paymentMethodLabel(method) {
+  return {
+    cash: "Cash",
+    card: "Card",
+    "m-pesa": "M-Pesa",
+  }[method] || method;
+}
+
+function PaymentMethodChart({ rows }) {
+  const totalRevenue = rows.reduce((sum, row) => sum + Math.max(toKsh(row.total_revenue), 0), 0);
+  const totalTransactions = rows.reduce((sum, row) => sum + Number(row.transaction_count || 0), 0);
+  let accumulated = 0;
+  const slices = rows.map((row) => {
+    const value = Math.max(toKsh(row.total_revenue), 0);
+    const start = totalRevenue ? (accumulated / totalRevenue) * 100 : 0;
+    accumulated += value;
+    const end = totalRevenue ? (accumulated / totalRevenue) * 100 : 0;
+    const color = PAYMENT_COLORS[row.payment_method] || "#8295b4";
+    return { ...row, color, start, end };
+  });
+  const gradient = totalRevenue
+    ? `conic-gradient(${slices.map((slice) => `${slice.color} ${slice.start}% ${slice.end}%`).join(", ")})`
+    : "conic-gradient(#e7ebf2 0% 100%)";
+
+  return (
+    <div className="performance-payment-content">
+      <div className="performance-donut" style={{ background: gradient }} role="img" aria-label={`Net revenue by payment method. ${formatKsh(totalRevenue)} total.`}>
+        <div className="performance-donut-center">
+          <strong>{totalTransactions.toLocaleString("en-KE")}</strong>
+          <span>transactions</span>
+        </div>
+      </div>
+      <div className="performance-payment-legend">
+        {rows.map((row) => (
+          <div className="performance-payment-row" key={row.payment_method}>
+            <span className="performance-payment-name">
+              <i style={{ background: PAYMENT_COLORS[row.payment_method] || "#8295b4" }} aria-hidden="true" />
+              {paymentMethodLabel(row.payment_method)}
+            </span>
+            <strong>{formatKsh(toKsh(row.total_revenue))}</strong>
+            <small>{Number(row.transaction_count || 0).toLocaleString("en-KE")} sales</small>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -137,15 +187,17 @@ function ManagerDashboard() {
       apiFetch(`/reports/dashboard?${query}`),
       apiFetch(`/reports/gross-margin?${query}`),
       apiFetch(`/reports/sales-by-date?${query}`),
+      apiFetch(`/reports/payment-methods?${query}`),
       apiFetch(`/reports/best-selling-products?${query}`),
       apiFetch(`/reports/sales-by-cashier?${query}`),
     ])
-      .then(([dashboard, margin, revenueByDate, bestSellers, salesByCashier]) => {
+      .then(([dashboard, margin, revenueByDate, paymentMethods, bestSellers, salesByCashier]) => {
         if (!active) return;
         setData({
           dashboard,
           margin,
           revenueByDate: revenueByDate.results || [],
+          paymentMethods: paymentMethods.results || [],
           bestSellers: bestSellers.results || [],
           salesByCashier: salesByCashier.results || [],
         });
@@ -171,19 +223,25 @@ function ManagerDashboard() {
   const transactionCount = Number(dashboard?.transaction_count || 0);
   const revenueKsh = toKsh(dashboard?.total_revenue);
   const avgSaleKsh = transactionCount ? Math.round(revenueKsh / transactionCount) : 0;
+  const grossMarginKsh = toKsh(margin?.gross_margin);
+  const grossMarginRate = toKsh(margin?.net_revenue)
+    ? (grossMarginKsh / toKsh(margin.net_revenue)) * 100
+    : 0;
   const bestSellers = (data?.bestSellers || []).slice(0, 5);
   const maxQuantity = Math.max(...bestSellers.map((product) => Number(product.quantity_sold)), 1);
+  const salesByCashier = (data?.salesByCashier || []).slice(0, 5);
+  const maxCashierRevenue = Math.max(...salesByCashier.map((cashier) => toKsh(cashier.total_revenue)), 1);
 
   return (
-    <div className="manager-dashboard">
-      <main className="manager-content dashboard-content">
-        <div className="dashboard-heading">
+    <div className="manager-dashboard manager-dashboard--performance">
+      <main className="manager-content performance-dashboard">
+        <div className="performance-heading">
           <div>
-            <p className="dashboard-eyebrow">TECHPOINT · BUSINESS OVERVIEW</p>
-            <h1>Dashboard</h1>
-            <p className="dashboard-subtitle">Sales performance and stock health in one place.</p>
+            <p className="performance-eyebrow">TECHPOINT · BUSINESS OVERVIEW</p>
+            <h1>Sales performance</h1>
+            <p>Track revenue, payment mix, product demand, and till activity.</p>
           </div>
-          <label className="dashboard-range-control">
+          <label className="performance-range-control">
             <span>Reporting period</span>
             <select value={range} onChange={(event) => setRange(Number(event.target.value))}>
               {RANGE_OPTIONS.map((option) => (
@@ -193,89 +251,94 @@ function ManagerDashboard() {
           </label>
         </div>
 
-        {error && <p className="dashboard-error" role="alert">Dashboard unavailable: {error}</p>}
+        {error && <p className="performance-error" role="alert">Dashboard unavailable: {error}</p>}
 
-        <section className="dashboard-metrics" aria-label="Sales summary">
-          <article className="dashboard-metric dashboard-metric--accent">
-            <span>Net revenue</span>
+        <section className="performance-kpis" aria-label="Sales summary">
+          <article className="performance-kpi performance-kpi--primary">
+            <span>Net sales</span>
             <strong>{loading ? "…" : formatKsh(revenueKsh)}</strong>
             <small>After recorded refunds</small>
           </article>
-          <article className="dashboard-metric">
-            <span>Completed sales</span>
+          <article className="performance-kpi">
+            <span>Transactions</span>
             <strong>{loading ? "…" : transactionCount.toLocaleString("en-KE")}</strong>
-            <small>In the selected period</small>
+            <small>Completed sales</small>
           </article>
-          <article className="dashboard-metric">
+          <article className="performance-kpi">
+            <span>Gross profit</span>
+            <strong>{loading ? "…" : formatKsh(grossMarginKsh)}</strong>
+            <small>{loading ? "Based on item costs" : `${grossMarginRate.toFixed(1)}% of net sales`}</small>
+          </article>
+          <article className="performance-kpi">
             <span>Average sale</span>
             <strong>{loading ? "…" : formatKsh(avgSaleKsh)}</strong>
-            <small>Net revenue per sale</small>
-          </article>
-          <article className="dashboard-metric">
-            <span>Gross margin</span>
-            <strong>{loading ? "…" : formatKsh(toKsh(margin?.gross_margin))}</strong>
-            <small>
-              {margin?.items_without_cost
-                ? `${margin.items_without_cost} units missing cost data`
-                : "Based on recorded product costs"}
-            </small>
-          </article>
-          <article className="dashboard-metric">
-            <span>Active products</span>
-            <strong>{loading ? "…" : Number(dashboard?.product_count || 0).toLocaleString("en-KE")}</strong>
-            <small>Available in the store catalogue</small>
-          </article>
-          <article className="dashboard-metric">
-            <span>Registered cashiers</span>
-            <strong>{loading ? "…" : Number(dashboard?.cashier_count || 0).toLocaleString("en-KE")}</strong>
-            <small>Cashier accounts</small>
+            <small>Net sales per transaction</small>
           </article>
         </section>
 
-        <section className="dashboard-panel dashboard-revenue-panel">
-          <div className="dashboard-panel-heading">
+        <section className="performance-quick-stats" aria-label="Store status">
+          <div><span>Active products</span><strong>{loading ? "…" : Number(dashboard?.product_count || 0).toLocaleString("en-KE")}</strong></div>
+          <div><span>Cashiers</span><strong>{loading ? "…" : Number(dashboard?.cashier_count || 0).toLocaleString("en-KE")}</strong></div>
+          <div><span>Low-stock alerts</span><strong className={dashboard?.low_stock_count ? "has-alert" : ""}>{loading ? "…" : Number(dashboard?.low_stock_count || 0).toLocaleString("en-KE")}</strong></div>
+        </section>
+
+        <div className="performance-grid">
+          <section className="performance-panel performance-panel--revenue">
+            <div className="performance-panel-heading">
             <div>
-              <h2>Revenue trend</h2>
-              <p>Daily net revenue in KSh</p>
+              <h2>Daily revenue</h2>
+              <p>Net sales by day · KSh</p>
             </div>
-            <span className="dashboard-legend"><i aria-hidden="true" /> Revenue</span>
           </div>
           {loading ? (
-            <p className="dashboard-empty">Loading revenue history…</p>
+            <p className="performance-empty">Loading revenue history…</p>
           ) : !data?.revenueByDate?.length ? (
-            <p className="dashboard-empty">No completed sales to chart in this period.</p>
+            <p className="performance-empty">No completed sales to chart in this period.</p>
           ) : (
             <RevenueChart series={series} />
           )}
-        </section>
+          </section>
 
-        <div className="dashboard-lower-grid">
-          <section className="dashboard-panel">
-            <div className="dashboard-panel-heading">
+          <section className="performance-panel performance-panel--payments">
+            <div className="performance-panel-heading">
+              <div>
+                <h2>Payment methods</h2>
+                <p>Net sales by tender type</p>
+              </div>
+            </div>
+            {loading ? (
+              <p className="performance-empty">Loading payment summary…</p>
+            ) : !data?.paymentMethods?.length ? (
+              <p className="performance-empty">No payments in this period.</p>
+            ) : (
+              <PaymentMethodChart rows={data.paymentMethods} />
+            )}
+          </section>
+
+          <section className="performance-panel">
+            <div className="performance-panel-heading">
               <div>
                 <h2>Best-selling products</h2>
                 <p>Ranked by units sold, less returned units</p>
               </div>
             </div>
             {loading ? (
-              <p className="dashboard-empty">Loading product sales…</p>
+              <p className="performance-empty">Loading product sales…</p>
             ) : bestSellers.length === 0 ? (
-              <p className="dashboard-empty">No product sales in this period.</p>
+              <p className="performance-empty">No product sales in this period.</p>
             ) : (
-              <ol className="dashboard-product-rankings">
+              <ol className="performance-rankings">
                 {bestSellers.map((product, index) => {
                   const quantity = Number(product.quantity_sold) || 0;
                   return (
                     <li key={product.product_id}>
-                      <div className="dashboard-product-rank-row">
-                        <span className="dashboard-rank-number">{index + 1}</span>
+                      <div className="performance-ranking-heading">
+                        <span className="performance-rank">{index + 1}</span>
                         <strong title={product.product_title}>{product.product_title}</strong>
-                        <span>{quantity} sold</span>
+                        <span>{quantity} units</span>
                       </div>
-                      <div className="dashboard-bar-track" aria-label={`${quantity} units sold`}>
-                        <span style={{ width: `${Math.max((quantity / maxQuantity) * 100, 2)}%` }} />
-                      </div>
-                      <small>{formatKsh(toKsh(product.total_revenue))} revenue</small>
+                      <div className="performance-bar-track"><span style={{ width: `${Math.max((quantity / maxQuantity) * 100, quantity ? 3 : 0)}%` }} /></div>
+                      <small>{formatKsh(toKsh(product.total_revenue))} net revenue</small>
                     </li>
                   );
                 })}
@@ -283,21 +346,51 @@ function ManagerDashboard() {
             )}
           </section>
 
-          <section className="dashboard-panel dashboard-stock-panel">
-            <div className="dashboard-panel-heading">
+          <section className="performance-panel">
+          <div className="performance-panel-heading">
+            <div>
+              <h2>Sales by cashier</h2>
+              <p>Net revenue and transaction count</p>
+            </div>
+          </div>
+          {loading ? (
+            <p className="performance-empty">Loading cashier performance…</p>
+          ) : salesByCashier.length === 0 ? (
+            <p className="performance-empty">No cashier sales in this period.</p>
+          ) : (
+            <div className="performance-cashier-list">
+              {salesByCashier.map((cashier) => {
+                const cashierRevenue = toKsh(cashier.total_revenue);
+                return (
+                  <div className="performance-cashier-row" key={cashier.user_id}>
+                    <div className="performance-cashier-heading">
+                      <strong>{cashier.name || cashier.username}</strong>
+                      <span>{formatKsh(cashierRevenue)}</span>
+                    </div>
+                    <div className="performance-bar-track"><span style={{ width: `${Math.max((cashierRevenue / maxCashierRevenue) * 100, 2)}%` }} /></div>
+                    <small>{Number(cashier.transaction_count || 0).toLocaleString("en-KE")} transactions</small>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          </section>
+
+          <section className="performance-panel performance-panel--stock">
+            <div className="performance-panel-heading">
               <div>
                 <h2>Low-stock watch</h2>
                 <p>{dashboard?.low_stock_count ?? 0} products need attention</p>
               </div>
-              <NavLink to="/manager/products">Manage inventory</NavLink>
+              <NavLink to="/manager/products">Manage inventory <span aria-hidden="true">→</span></NavLink>
             </div>
             {loading ? (
-              <p className="dashboard-empty">Loading stock levels…</p>
+              <p className="performance-empty">Loading stock levels…</p>
             ) : !dashboard?.low_stock_products?.length ? (
-              <p className="dashboard-empty">All active products are above their low-stock thresholds.</p>
+              <p className="performance-empty">All active products are above their low-stock thresholds.</p>
             ) : (
-              <div className="dashboard-table-scroll">
-                <table className="dashboard-table">
+              <div className="performance-table-scroll">
+                <table className="performance-table">
                   <thead><tr><th>Product</th><th>In stock</th><th>Threshold</th><th>Status</th></tr></thead>
                   <tbody>
                     {dashboard.low_stock_products.slice(0, 7).map((product) => (
@@ -305,7 +398,7 @@ function ManagerDashboard() {
                         <th scope="row">{product.title}</th>
                         <td>{product.stock_quantity}</td>
                         <td>{product.low_stock_threshold}</td>
-                        <td><span className="stock-alert">Restock</span></td>
+                        <td><span className="performance-stock-alert">Restock</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -314,40 +407,6 @@ function ManagerDashboard() {
             )}
           </section>
         </div>
-
-        <section className="dashboard-panel">
-          <div className="dashboard-panel-heading">
-            <div>
-              <h2>Sales by cashier</h2>
-              <p>Net revenue and completed transactions</p>
-            </div>
-          </div>
-          {loading ? (
-            <p className="dashboard-empty">Loading cashier performance…</p>
-          ) : !data?.salesByCashier?.length ? (
-            <p className="dashboard-empty">No cashier sales in this period.</p>
-          ) : (
-            <div className="dashboard-table-scroll">
-              <table className="dashboard-table">
-                <thead><tr><th>Cashier</th><th>Transactions</th><th>Average sale</th><th>Net revenue</th></tr></thead>
-                <tbody>
-                  {data.salesByCashier.map((cashier) => {
-                    const count = Number(cashier.transaction_count) || 0;
-                    const cashierRevenue = toKsh(cashier.total_revenue);
-                    return (
-                      <tr key={cashier.user_id}>
-                        <th scope="row">{cashier.name || cashier.username}</th>
-                        <td>{count}</td>
-                        <td>{formatKsh(count ? Math.round(cashierRevenue / count) : 0)}</td>
-                        <td><strong>{formatKsh(cashierRevenue)}</strong></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
       </main>
     </div>
   );

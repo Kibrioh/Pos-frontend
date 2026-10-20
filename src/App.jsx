@@ -111,11 +111,33 @@ function App() {
 
   const receiptRef = useRef(null);
 
+  useEffect(() => {
+    if (currentUser?.role !== "cashier") {
+      setCashierShift(null);
+      return undefined;
+    }
+
+    let active = true;
+    apiFetch("/shifts/current")
+      .then((shift) => {
+        if (active) setCashierShift(shift);
+      })
+      .catch(() => {
+        if (active) setCashierShift(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.id, currentUser?.role, cashierShiftRefreshKey]);
+
   const [view, setView] = useState("home");
   const [featuredIndex, setFeaturedIndex] =
     useState(0);
 
   const [selectedProduct, setSelectedProduct] =
+    useState(null);
+  const [selectedProductAnchor, setSelectedProductAnchor] =
     useState(null);
 
 
@@ -131,6 +153,7 @@ function App() {
       "/cashier/orders": "orders",
       "/cashier/ledger": "ledger",
       "/cashier/low-stock": "low-stock",
+      "/cashier/close-shift": "close-shift",
     };
 
     const nextView =
@@ -383,6 +406,7 @@ function App() {
   orders: "/cashier/orders",
    ledger: "/cashier/ledger",
   "low-stock": "/cashier/low-stock",
+  "close-shift": "/cashier/close-shift",
 };
 
     navigate(routes[nextView] || "/");
@@ -877,7 +901,15 @@ function App() {
   /*
     PRODUCT DETAILS
   */
-  const handleViewDetails = (product) => setSelectedProduct(product);
+  const handleViewDetails = (product, anchorElement) => {
+    setSelectedProduct(product);
+    setSelectedProductAnchor(anchorElement);
+  };
+
+  const closeProductDetails = () => {
+    setSelectedProduct(null);
+    setSelectedProductAnchor(null);
+  };
 
   /*
     LOGIN SCREEN
@@ -1105,6 +1137,15 @@ function App() {
             }
           >
             My Sales
+          </button>
+
+          <button
+            className={`app-nav-button${view === "close-shift" ? " is-active" : ""}`}
+            type="button"
+            aria-current={view === "close-shift" ? "page" : undefined}
+            onClick={() => navigateTo("close-shift")}
+          >
+            Close shift
           </button>
 
           <button
@@ -1909,6 +1950,23 @@ function App() {
             )}
           </section>
         </main>
+      ) : view === "close-shift" ? (
+        <main className="main-content">
+          <section className="catalogue close-shift-page" aria-labelledby="close-shift-title">
+            <div className="catalogue-heading">
+              <div>
+                <p className="section-kicker">CASH CONTROL</p>
+                <h1 id="close-shift-title">Close shift</h1>
+                <p className="section-description">Review your expected till balance and reconcile counted cash before ending your shift.</p>
+              </div>
+            </div>
+            <CashierShiftPanel
+              user={currentUser}
+              onShiftChange={setCashierShift}
+              refreshKey={cashierShiftRefreshKey}
+            />
+          </section>
+        </main>
       ) : (
         <main className="main-content">
           <section
@@ -2095,14 +2153,6 @@ function App() {
                 }
               />
             </div>
-
-            {view !== "low-stock" && (
-              <CashierShiftPanel
-                user={currentUser}
-                onShiftChange={setCashierShift}
-                refreshKey={cashierShiftRefreshKey}
-              />
-            )}
 
             {view !== "low-stock" && currentCashierHeldSales.length >
               0 && (
@@ -2349,7 +2399,8 @@ function App() {
             {selectedProduct && (
               <ProductDetails
                 product={selectedProduct}
-                onClose={() => setSelectedProduct(null)}
+                anchorElement={selectedProductAnchor}
+                onClose={closeProductDetails}
                 onAddToCart={(product) => dispatch({ type: "ADD", product })}
                 readOnly={view === "low-stock"}
               />
