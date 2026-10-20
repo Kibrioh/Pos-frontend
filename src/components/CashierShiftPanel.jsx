@@ -17,7 +17,9 @@ function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
   const [shift, setShift] = useState(null);
   const [closingCash, setClosingCash] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [checkMessage, setCheckMessage] = useState("");
   const [closeResult, setCloseResult] = useState(null);
 
   const acceptShift = (nextShift) => {
@@ -27,11 +29,21 @@ function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
   };
 
   const refreshShift = async () => {
+    setChecking(true);
     setError("");
+    setCheckMessage("");
     try {
-      acceptShift(await apiFetch("/shifts/current"));
-    } catch (err) {
-      setError(err.message);
+      const currentShift = await apiFetch("/shifts/current");
+      acceptShift(currentShift);
+      setCheckMessage(
+        currentShift
+          ? `Your float is ready. The manager assigned ${formatKsh(toKsh(currentShift.opening_cash))}. You can start serving customers.`
+          : "No float has been assigned yet. Please ask your manager to assign one, then check again."
+      );
+    } catch {
+      setCheckMessage("We couldn’t check your float right now. Please check your connection and try again.");
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -85,17 +97,25 @@ function CashierShiftPanel({ user, onShiftChange, refreshKey }) {
 
       {!shift ? (
         <div className="shift-unassigned">
-          <p className="shift-open-summary">No float has been assigned yet. Ask your manager to assign your till float before starting sales.</p>
-          <button className="button-secondary" type="button" onClick={refreshShift}>Check for assigned float</button>
+          <div>
+            <p className="shift-open-summary">Your till is waiting for a float from your manager. Check again after it has been assigned.</p>
+            {checkMessage && <p className="shift-check-message" role="status">{checkMessage}</p>}
+          </div>
+          <button className="button-secondary" type="button" onClick={refreshShift} disabled={checking}>
+            {checking ? "Checking…" : "Check for assigned float"}
+          </button>
         </div>
       ) : (
         <>
           <p className="shift-open-summary">
             Opened {new Date(shift.opened_at).toLocaleString()} · Opening float {formatKsh(toKsh(shift.opening_cash))}
           </p>
+          {checkMessage && <p className="shift-check-message" role="status">{checkMessage}</p>}
           <div className="shift-close-result" role="status">
             Expected till cash: {formatKsh(toKsh(shift.expected_cash))}
-            <button className="button-secondary" type="button" onClick={refreshShift}>Refresh</button>
+            <button className="button-secondary" type="button" onClick={refreshShift} disabled={checking}>
+              {checking ? "Refreshing…" : "Refresh"}
+            </button>
           </div>
           <p className="shift-open-summary">
             Cash sales are added automatically. Ask the manager to record any separate cash added to or removed from the till.

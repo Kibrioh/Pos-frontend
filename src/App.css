@@ -836,6 +836,14 @@ button:focus {
   font-size: 14px;
 }
 
+.shift-check-message {
+  margin: 10px 0 0;
+  color: #286744;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .shift-unassigned {
   display: flex;
   align-items: center;
