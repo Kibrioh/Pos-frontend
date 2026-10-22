@@ -15,23 +15,27 @@ function Login({ onLogin }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [signupAvailable, setSignupAvailable] = useState(null);
+  const [signupCheckFailed, setSignupCheckFailed] = useState(false);
+  const [signupCheckAttempt, setSignupCheckAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setSignupAvailable(null);
+    setSignupCheckFailed(false);
 
     apiFetch("/auth/manager-signup-available", { cache: "no-store" })
       .then((data) => {
         if (active) setSignupAvailable(Boolean(data.available));
       })
       .catch(() => {
-        if (active) setSignupAvailable(false);
+        if (active) setSignupCheckFailed(true);
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [signupCheckAttempt]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,8 +77,17 @@ function Login({ onLogin }) {
       setError("");
       onLogin(user);
     } catch (err) {
-      if (err.status === 409 && mode === "signup") {
+      if (
+        err.status === 409 &&
+        mode === "signup" &&
+        err.message === "Manager account setup is already complete"
+      ) {
         setSignupAvailable(false);
+        setMode("login");
+        setName("");
+        setConfirmPassword("");
+        setError("A manager account already exists. Sign in with that account.");
+        return;
       }
       setError(
         err.status === 401
@@ -212,12 +225,36 @@ function Login({ onLogin }) {
         </form>
 
         {mode === "login" && signupAvailable && (
-          <p className="login-mode-switch">
-            Setting up this POS for the first time?{" "}
-            <button type="button" onClick={() => switchMode("signup")}>
-              Create the manager account
+          <section className="login-manager-setup" aria-label="First-time manager setup">
+            <span className="login-manager-setup__eyebrow">First-time setup</span>
+            <h3>No manager account yet?</h3>
+            <p>Create the first manager account to manage the store and register cashiers.</p>
+            <button
+              className="login-manager-setup__button"
+              type="button"
+              onClick={() => switchMode("signup")}
+            >
+              Create manager account
             </button>
+          </section>
+        )}
+
+        {mode === "login" && signupAvailable === null && !signupCheckFailed && (
+          <p className="login-setup-status" role="status">
+            Checking whether manager account setup is available…
           </p>
+        )}
+
+        {mode === "login" && signupCheckFailed && (
+          <div className="login-setup-status login-setup-status--error" role="alert">
+            <span>Could not check if a manager account exists.</span>
+            <button
+              type="button"
+              onClick={() => setSignupCheckAttempt((attempt) => attempt + 1)}
+            >
+              Try again
+            </button>
+          </div>
         )}
 
         {mode === "signup" && (

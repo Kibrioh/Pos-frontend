@@ -1977,6 +1977,88 @@ button:focus {
   cursor: pointer;
 }
 
+.login-manager-setup {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid #dbe5f3;
+  border-radius: 12px;
+  background: #f7f9fc;
+}
+
+.login-manager-setup__eyebrow {
+  color: #526783;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.login-manager-setup h3 {
+  margin: 7px 0 5px;
+  color: #17243a;
+  font-size: 16px;
+}
+
+.login-manager-setup p {
+  margin: 0;
+  color: #66748a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.login-manager-setup__button {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px 14px;
+  border: 1px solid #c8d5e7;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e3556;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.login-manager-setup__button:hover {
+  border-color: #879fbe;
+  background: #f0f5fb;
+}
+
+.login-manager-setup__button:focus-visible,
+.login-setup-status button:focus-visible {
+  outline: 3px solid rgba(71, 119, 213, 0.28);
+  outline-offset: 2px;
+}
+
+.login-setup-status {
+  margin: 20px 0 0;
+  color: #66748a;
+  font-size: 13px;
+  text-align: center;
+}
+
+.login-setup-status--error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  color: #8b3434;
+}
+
+.login-setup-status button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1e3556;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Footer */
 
 .login-footer {
