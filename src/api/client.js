@@ -38,3 +38,12 @@ export async function login(username, password) {
   setToken(data.access_token);
   return data.user;
 }
+
+export async function registerManager(name, username, password) {
+  const data = await apiFetch("/auth/manager-signup", {
+    method: "POST",
+    body: JSON.stringify({ name, username, password }),
+  });
+  setToken(data.access_token);
+  return data.user;
+}

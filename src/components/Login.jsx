@@ -1,26 +1,98 @@
-import { useState } from "react";
-import { login } from "../api/client";
+import { useEffect, useState } from "react";
+import { apiFetch, login, registerManager } from "../api/client";
+
+const passwordMeetsRequirements = (password) =>
+  Array.from(password).length >= 8 &&
+  /\p{Lu}/u.test(password) &&
+  /\p{Ll}/u.test(password) &&
+  /[^\p{L}\p{N}\s]/u.test(password);
 
 function Login({ onLogin }) {
+  const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [signupAvailable, setSignupAvailable] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    apiFetch("/auth/manager-signup-available", { cache: "no-store" })
+      .then((data) => {
+        if (active) setSignupAvailable(Boolean(data.available));
+      })
+      .catch(() => {
+        if (active) setSignupAvailable(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!username || !password) {
+    const cleanUsername = username.trim();
+
+    if (mode === "signup") {
+      if (!name.trim() || !cleanUsername || !password || !confirmPassword) {
+        setError("Please fill in all manager account details.");
+        return;
+      }
+
+      if (cleanUsername.length < 3) {
+        setError("Username must be at least 3 characters.");
+        return;
+      }
+
+      if (!passwordMeetsRequirements(password)) {
+        setError(
+          "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, and a special character."
+        );
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+    } else if (!cleanUsername || !password) {
       setError("Please enter your username and password.");
       return;
     }
 
+    setSaving(true);
     try {
-      const user = await login(username, password);
+      const user = mode === "signup"
+        ? await registerManager(name.trim(), cleanUsername, password)
+        : await login(cleanUsername, password);
       setError("");
       onLogin(user);
     } catch (err) {
-      setError(err.status === 401 ? "Invalid username or password." : err.message);
+      if (err.status === 409 && mode === "signup") {
+        setSignupAvailable(false);
+      }
+      setError(
+        err.status === 401
+          ? "Invalid username or password."
+          : err.data?.errors
+            ? Object.entries(err.data.errors)
+                .map(([field, message]) => `${field}: ${message}`)
+                .join(". ")
+            : err.message
+      );
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError("");
   };
 
   return (
@@ -37,14 +109,33 @@ function Login({ onLogin }) {
 
       <div className="login-card">
         <div className="login-header">
-          <h2>Welcome back</h2>
+          <h2>{mode === "login" ? "Welcome back" : "Set up your manager account"}</h2>
 
           <p>
-            Sign in to access the TechPoint POS system.
+            {mode === "login"
+              ? "Sign in to access the TechPoint POS system."
+              : "Create the first manager account to manage your store and register cashiers."}
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {mode === "signup" && (
+            <div className="login-field">
+              <label htmlFor="manager-name">Full name</label>
+              <input
+                id="manager-name"
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError("");
+                }}
+                placeholder="Enter your full name"
+                autoComplete="name"
+              />
+            </div>
+          )}
+
           <div className="login-field">
             <label htmlFor="username">
               Username
@@ -58,7 +149,8 @@ function Login({ onLogin }) {
                 setUsername(e.target.value);
                 setError("");
               }}
-              placeholder="Enter your username"
+              placeholder={mode === "signup" ? "Choose a username" : "Enter your username"}
+              autoComplete="username"
             />
           </div>
 
@@ -75,9 +167,32 @@ function Login({ onLogin }) {
                 setPassword(e.target.value);
                 setError("");
               }}
-              placeholder="Enter your password"
+              placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
             />
+            {mode === "signup" && (
+              <small className="login-password-help">
+                At least 8 characters, with uppercase, lowercase, and a special character.
+              </small>
+            )}
           </div>
+
+          {mode === "signup" && (
+            <div className="login-field">
+              <label htmlFor="confirm-password">Confirm password</label>
+              <input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError("");
+                }}
+                placeholder="Re-enter your password"
+                autoComplete="new-password"
+              />
+            </div>
+          )}
 
           {error && (
             <p className="login-error" role="alert">
@@ -88,10 +203,31 @@ function Login({ onLogin }) {
           <button
             className="login-button"
             type="submit"
+            disabled={saving || (mode === "signup" && !signupAvailable)}
           >
-            Sign In
+            {saving
+              ? mode === "signup" ? "Creating account..." : "Signing in..."
+              : mode === "signup" ? "Create Manager Account" : "Sign In"}
           </button>
         </form>
+
+        {mode === "login" && signupAvailable && (
+          <p className="login-mode-switch">
+            Setting up this POS for the first time?{" "}
+            <button type="button" onClick={() => switchMode("signup")}>
+              Create the manager account
+            </button>
+          </p>
+        )}
+
+        {mode === "signup" && (
+          <p className="login-mode-switch">
+            Already have a manager account?{" "}
+            <button type="button" onClick={() => switchMode("login")}>
+              Sign in
+            </button>
+          </p>
+        )}
 
         <div className="login-footer">
           <span></span>
