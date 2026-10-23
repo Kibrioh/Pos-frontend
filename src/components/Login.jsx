@@ -57,7 +57,7 @@ function Login({ onLogin }) {
       onLogin(user);
     } catch (err) {
       if (err.status === 409 && mode === "signup") {
-        setError("An account already exists. Please sign in instead.");
+        setError("An account with this username already exists. Please sign in instead.");
         return;
       }
       setError(
@@ -98,7 +98,7 @@ function Login({ onLogin }) {
           <p>
             {mode === "login"
               ? "Sign in to access the TechPoint POS system."
-              : "Create the first manager account to manage your store and register cashiers."}
+              : "Create a manager account to manage your store and register cashiers."}
           </p>
         </div>
 
