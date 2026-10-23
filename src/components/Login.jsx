@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { apiFetch, login, registerManager } from "../api/client";
+import { useState } from "react";
+import { login, registerManager } from "../api/client";
 
 const passwordMeetsRequirements = (password) =>
   Array.from(password).length >= 8 &&
@@ -14,28 +14,7 @@ function Login({ onLogin }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [signupAvailable, setSignupAvailable] = useState(null);
-  const [signupCheckFailed, setSignupCheckFailed] = useState(false);
-  const [signupCheckAttempt, setSignupCheckAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    setSignupAvailable(true);
-    setSignupCheckFailed(false);
-
-    apiFetch("/auth/manager-signup-available", { cache: "no-store" })
-      .then((data) => {
-        if (active) setSignupAvailable(Boolean(data.available));
-      })
-      .catch(() => {
-        if (active) setSignupCheckFailed(true);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [signupCheckAttempt]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -77,16 +56,8 @@ function Login({ onLogin }) {
       setError("");
       onLogin(user);
     } catch (err) {
-      if (
-        err.status === 409 &&
-        mode === "signup" &&
-        err.message === "Manager account setup is already complete"
-      ) {
-        setSignupAvailable(false);
-        setMode("login");
-        setName("");
-        setConfirmPassword("");
-        setError("A manager account already exists. Sign in with that account.");
+      if (err.status === 409 && mode === "signup") {
+        setError("An account already exists. Please sign in instead.");
         return;
       }
       setError(
@@ -216,7 +187,7 @@ function Login({ onLogin }) {
           <button
             className="login-button"
             type="submit"
-            disabled={saving || (mode === "signup" && !signupAvailable)}
+            disabled={saving}
           >
             {saving
               ? mode === "signup" ? "Creating account..." : "Signing in..."
@@ -224,37 +195,13 @@ function Login({ onLogin }) {
           </button>
         </form>
 
-        {mode === "login" && signupAvailable && (
-          <section className="login-manager-setup" aria-label="First-time manager setup">
-            <span className="login-manager-setup__eyebrow">First-time setup</span>
-            <h3>No manager account yet?</h3>
-            <p>Create the first manager account to manage the store and register cashiers.</p>
-            <button
-              className="login-manager-setup__button"
-              type="button"
-              onClick={() => switchMode("signup")}
-            >
-              Create manager account
+        {mode === "login" && (
+          <p className="login-mode-switch">
+            Don&apos;t have a manager account?{" "}
+            <button type="button" onClick={() => switchMode("signup")}>
+              Sign up
             </button>
-          </section>
-        )}
-
-        {mode === "login" && signupAvailable === null && !signupCheckFailed && (
-          <p className="login-setup-status" role="status">
-            Checking whether manager account setup is available…
           </p>
-        )}
-
-        {mode === "login" && signupCheckFailed && (
-          <div className="login-setup-status login-setup-status--error" role="alert">
-            <span>Could not check if a manager account exists.</span>
-            <button
-              type="button"
-              onClick={() => setSignupCheckAttempt((attempt) => attempt + 1)}
-            >
-              Try again
-            </button>
-          </div>
         )}
 
         {mode === "signup" && (
