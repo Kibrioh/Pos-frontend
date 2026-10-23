@@ -21,7 +21,7 @@ function Login({ onLogin }) {
 
   useEffect(() => {
     let active = true;
-    setSignupAvailable(null);
+    setSignupAvailable(true);
     setSignupCheckFailed(false);
 
     apiFetch("/auth/manager-signup-available", { cache: "no-store" })
