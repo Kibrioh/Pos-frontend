@@ -364,20 +364,6 @@
   font-size: 13px;
 }
 
-.manager-product-success {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.manager-product-card-success {
-  margin: 10px 0 0;
-}
-
-.manager-product-add-success {
-  grid-column: 1 / -1;
-  margin-top: 0;
-}
-
 .audit-filter-control {
   width: min(100%, 360px);
   margin-bottom: 18px;

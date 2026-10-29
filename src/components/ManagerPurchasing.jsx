@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 import { getProducts } from "../api/products";
 import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
+import ManagerSuccessPopup from "./ManagerSuccessPopup";
 import "../styles/manager-actions.css";
 
 function ManagerPurchasing({ products = [], setProducts }) {
@@ -131,7 +132,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
           <label>Email<input type="email" value={supplierForm.email} onChange={(event) => setSupplierForm({ ...supplierForm, email: event.target.value })} /></label>
           <button className="manager-action-button manager-action-button--primary purchasing-form-submit" disabled={busy}>Save supplier</button>
         </form>
-        {supplierSuccess && <p className="form-success" role="status">{supplierSuccess}</p>}
+        {supplierSuccess && <ManagerSuccessPopup message={supplierSuccess} onClose={() => setSupplierSuccess("")} />}
       </section>
 
       <section className="manager-section">
@@ -150,7 +151,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
             <button className="manager-action-button manager-action-button--primary purchasing-form-submit" disabled={busy}>Create order</button>
           </form>
         )}
-        {orderSuccess && <p className="form-success" role="status">{orderSuccess}</p>}
+        {orderSuccess && <ManagerSuccessPopup message={orderSuccess} onClose={() => setOrderSuccess("")} />}
       </section>
 
       <section className="manager-section">
@@ -166,7 +167,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
                 <ul>{order.items.map((item) => <li key={item.id}><span>{item.product_title}</span><span>{item.received_quantity} / {item.quantity} received</span><strong>{formatKsh(toKsh(item.unit_cost))} each</strong>{item.received_quantity < item.quantity && <label className="receive-quantity">Delivered now<input type="number" min="0" max={item.quantity - item.received_quantity} step="1" value={receiveQuantities[item.id] || ""} onChange={(event) => setReceiveQuantities((current) => ({ ...current, [item.id]: event.target.value }))} /></label>}</li>)}</ul>
                 {order.note && <p className="purchase-order-note">{order.note}</p>}
                 {order.status !== "received" && order.status !== "cancelled" && <button className="manager-action-button manager-action-button--primary" type="button" disabled={busy} onClick={() => receiveOrder(order)}>Record delivery</button>}
-                {deliverySuccess?.orderId === order.id && <p className="form-success" role="status">{deliverySuccess.message}</p>}
+                {deliverySuccess?.orderId === order.id && <ManagerSuccessPopup message={deliverySuccess.message} onClose={() => setDeliverySuccess(null)} />}
               </article>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 import { formatKsh, toKsh, USD_TO_KSH } from "../utils/formatPrice";
+import ManagerSuccessPopup from "./ManagerSuccessPopup";
 
 function cashDifferenceLabel(value) {
   const difference = Number(value || 0);
@@ -194,7 +195,7 @@ function ManagerShifts() {
           </button>
         </form>
         {error && <p className="form-error" role="alert">{error}</p>}
-        {assignSuccess && <p className="form-success" role="status">{assignSuccess}</p>}
+        {assignSuccess && <ManagerSuccessPopup message={assignSuccess} onClose={() => setAssignSuccess("")} />}
         {cashiers.length === 0 && !error && <p>No cashiers are registered yet.</p>}
       </section>
 
@@ -243,7 +244,7 @@ function ManagerShifts() {
             {busy ? "Recording…" : "Record adjustment"}
           </button>
         </form>
-        {movementSuccess && <p className="form-success" role="status">{movementSuccess}</p>}
+        {movementSuccess && <ManagerSuccessPopup message={movementSuccess} onClose={() => setMovementSuccess("")} />}
         {movementDirection === "out" && selectedMovementShift && (
           <p className="shift-cash-available">Cash currently available: {formatKsh(availableCashKsh)}</p>
         )}
@@ -256,8 +257,8 @@ function ManagerShifts() {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Open and recent shifts</h3><p>Reconcile and close open tills here; review completed cash counts below.</p></div><button className="button-secondary" type="button" onClick={reload} disabled={busy || closingBusy}>Refresh shifts</button></div>
-        {closingSuccess && (loadError || !shifts.some((shift) => shift.id === closingSuccess.shiftId)) && (
-          <p className="form-success" role="status">{closingSuccess.message}</p>
+        {closingSuccess && !shifts.some((shift) => shift.id === closingSuccess.shiftId) && (
+          <ManagerSuccessPopup message={closingSuccess.message} onClose={() => setClosingSuccess(null)} />
         )}
         {loadError ? <p className="form-error" role="alert">{loadError}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
           <div className="shift-list">
@@ -267,7 +268,7 @@ function ManagerShifts() {
                   <div><h4>{shift.cashier || `User ${shift.user_id}`}</h4><p>Opened {new Date(shift.opened_at).toLocaleString()}</p>{shift.closed_at && <p>Closed {new Date(shift.closed_at).toLocaleString()}</p>}</div>
                   <span className={`shift-status${shift.status === "open" ? " is-open" : ""}`}>{shift.status}</span>
                 </div>
-                {closingSuccess?.shiftId === shift.id && <p className="form-success" role="status">{closingSuccess.message}</p>}
+                {closingSuccess?.shiftId === shift.id && <ManagerSuccessPopup message={closingSuccess.message} onClose={() => setClosingSuccess(null)} />}
                 <div className="shift-record-values"><span>Assigned float <strong>{formatKsh(toKsh(shift.opening_cash))}</strong></span>{shift.status === "open" && <span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span>}{shift.status === "closed" && <><span>Expected till cash <strong>{formatKsh(toKsh(shift.expected_cash))}</strong></span><span>Counted cash <strong>{formatKsh(toKsh(shift.closing_cash))}</strong></span><span>Cash difference <strong>{cashDifferenceLabel(shift.cash_variance)}</strong></span></>}</div>
                 {shift.status === "open" && (closingShiftId === shift.id ? (
                   <form className="shift-inline-form shift-close-form" onSubmit={(event) => closeShift(event, shift)}>

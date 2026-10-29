@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
+import ManagerSuccessPopup from "./ManagerSuccessPopup";
 
 const passwordMeetsRequirements = (password) =>
   Array.from(password).length >= 8 &&
@@ -128,7 +129,7 @@ function ManagerCashiers() {
             {saving ? "Registering..." : "Register Cashier"}
           </button>
         </form>
-        {successMessage && <p className="form-success" role="status">{successMessage}</p>}
+        {successMessage && <ManagerSuccessPopup message={successMessage} onClose={() => setSuccessMessage("")} />}
       </section>
 
       <section className="manager-section">

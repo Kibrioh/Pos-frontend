@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
 import { formatKsh } from "../utils/formatPrice";
+import ManagerSuccessPopup from "./ManagerSuccessPopup";
 import "../styles/manager-actions.css";
 
 function returnedQuantity(sale, saleItemId) {
@@ -216,7 +217,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
                     <div><h4>Sale #{sale.id}</h4><p>{sale.cashier} · {new Date(sale.completedAt).toLocaleString()}</p><p>{sale.itemCount} items · {sale.paymentMethod || "Payment method unavailable"}</p></div>
                     <div className="manager-sale-total"><strong>{formatKsh(sale.total)}</strong>{refunded > 0 && <span>{formatKsh(refunded)} refunded</span>}</div>
                   </div>
-                  {returnSuccess?.saleId === sale.id && <p className="form-success" role="status">{returnSuccess.message}</p>}
+                  {returnSuccess?.saleId === sale.id && <ManagerSuccessPopup message={returnSuccess.message} onClose={() => setReturnSuccess(null)} />}
                   <details className="manager-sale-items-disclosure">
                     <summary>Items · {sale.itemCount}</summary>
                     <ul className="manager-sale-items">{sale.items.map((item) => <li key={item.saleItemId}><span>{item.title} × {item.quantity}</span><strong>{formatKsh(item.price * item.quantity)}</strong></li>)}</ul>

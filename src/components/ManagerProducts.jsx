@@ -6,6 +6,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { formatPrice, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 import ProductPagination from "./ProductPagination";
+import ManagerSuccessPopup from "./ManagerSuccessPopup";
 import "../styles/manager-actions.css";
 
 function ManagerProducts({
@@ -397,7 +398,7 @@ function ManagerProducts({
             </p>
           </div>
         </div>
-        {catalogueSuccess && <p className="form-success manager-product-success" role="status">{catalogueSuccess}</p>}
+        {catalogueSuccess && <ManagerSuccessPopup className="manager-product-success" message={catalogueSuccess} onClose={() => setCatalogueSuccess("")} />}
 
         {loading ? (
           <div className="empty-inventory" role="status">
@@ -551,7 +552,7 @@ function ManagerProducts({
                       Delete
                     </button>
                   </div>
-                  {productSuccess?.productId === product.id && <p className="form-success manager-product-card-success" role="status">{productSuccess.message}</p>}
+                  {productSuccess?.productId === product.id && <ManagerSuccessPopup className="manager-product-card-success" message={productSuccess.message} onClose={() => setProductSuccess(null)} />}
 
                   {editingDetailsId === product.id ? (
                     <form
@@ -837,7 +838,7 @@ function ManagerProducts({
           >
             + Add Product
           </button>
-          {addProductSuccess && <p className="form-success manager-product-add-success" role="status">{addProductSuccess}</p>}
+          {addProductSuccess && <ManagerSuccessPopup className="manager-product-add-success" message={addProductSuccess} onClose={() => setAddProductSuccess("")} />}
         </form>
       </section>
     </main>
