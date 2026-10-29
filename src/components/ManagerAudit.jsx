@@ -143,19 +143,20 @@ function ManagerAudit() {
         <div className="inventory-summary"><strong>{events.length}</strong><span>Recent events</span></div>
       </div>
       <section className="manager-section">
-        <div className="audit-category-filters" role="group" aria-label="Filter audit activity by category">
-          {AUDIT_CATEGORIES.map((category) => (
-            <button
-              className={`audit-category-filter${activeCategory === category.id ? " is-active" : ""}`}
-              key={category.id}
-              type="button"
-              aria-pressed={activeCategory === category.id}
-              onClick={() => setActiveCategory(category.id)}
-            >
-              {category.label}<span>{categoryCounts[category.id] || 0}</span>
-            </button>
-          ))}
-        </div>
+        <label className="manager-filter audit-filter-control" htmlFor="audit-category-filter">
+          Filter audit activity
+          <select
+            id="audit-category-filter"
+            value={activeCategory}
+            onChange={(event) => setActiveCategory(event.target.value)}
+          >
+            {AUDIT_CATEGORIES.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label} ({categoryCounts[category.id] || 0})
+              </option>
+            ))}
+          </select>
+        </label>
         {error ? <p className="form-error" role="alert">{error}</p> : events.length === 0 ? <div className="empty-inventory"><p>No audit activity yet.</p></div> : (
           <div className="audit-event-list">
             {filteredEvents.length === 0 ? <div className="empty-inventory"><p>No {AUDIT_CATEGORIES.find((category) => category.id === activeCategory)?.label.toLowerCase()} activity found.</p></div> : filteredEvents.map((event) => {

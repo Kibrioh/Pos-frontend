@@ -21,6 +21,8 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   const [shiftId, setShiftId] = useState("");
   const [openShifts, setOpenShifts] = useState([]);
   const [saleSearch, setSaleSearch] = useState("");
+  const [cashierSearch, setCashierSearch] = useState("");
+  const [selectedCashier, setSelectedCashier] = useState("");
   const [error, setError] = useState("");
   const [returnSuccess, setReturnSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,7 +45,26 @@ function ManagerSales({ sales = [], onReturnCreated }) {
     return sum + Number(sale.total || 0) - refunded;
   }, 0), [sales]);
 
-  const cashierNames = [...new Set(sales.map((sale) => sale.cashier))];
+  const cashierNames = useMemo(
+    () => [...new Set(sales.map((sale) => String(sale.cashier || "")).filter(Boolean))],
+    [sales],
+  );
+  const filteredCashierNames = useMemo(() => {
+    const query = cashierSearch.trim().toLowerCase();
+    return cashierNames.filter((cashier) => cashier.toLowerCase().includes(query));
+  }, [cashierNames, cashierSearch]);
+  const selectedCashierSales = useMemo(
+    () => sales.filter((sale) => sale.cashier === selectedCashier),
+    [sales, selectedCashier],
+  );
+  const selectedCashierNet = useMemo(() => selectedCashierSales.reduce((total, sale) => {
+    const refunds = (sale.returns || []).reduce(
+      (sum, record) => sum + Number(record.refund_total || 0),
+      0,
+    );
+    return total + Number(sale.total || 0) - refunds;
+  }, 0), [selectedCashierSales]);
+
   const filteredSales = useMemo(() => {
     const query = saleSearch.trim().toLowerCase();
     if (!query) return sales;
@@ -123,19 +144,48 @@ function ManagerSales({ sales = [], onReturnCreated }) {
       </div>
 
       <section className="manager-section">
-        <h3>Cashier Sales Summary</h3>
-        {cashierNames.length === 0 ? <p>No cashier sales yet.</p> : (
-          <div className="cashier-sales-summary">
-            {cashierNames.map((cashier) => {
-              const cashierSales = sales.filter((sale) => sale.cashier === cashier);
-              const cashierNet = cashierSales.reduce((total, sale) => {
-                const refunds = (sale.returns || []).reduce((sum, record) => sum + Number(record.refund_total || 0), 0);
-                return total + Number(sale.total || 0) - refunds;
-              }, 0);
-              return <div className="manager-card" key={cashier}><h3>{cashier}</h3><p>Transactions: <strong>{cashierSales.length}</strong></p><p>Net revenue: <strong>{formatKsh(cashierNet)}</strong></p></div>;
-            })}
+        <div className="section-heading-row cashier-sales-heading">
+          <div><h3>Cashier Sales Summary</h3><p>Search for a cashier, then select them to view their totals.</p></div>
+          <div className="cashier-sales-picker">
+            <label htmlFor="cashier-sales-search">Search cashiers</label>
+            <input
+              id="cashier-sales-search"
+              type="search"
+              value={cashierSearch}
+              onChange={(event) => {
+                const query = event.target.value;
+                setCashierSearch(query);
+                if (selectedCashier && !selectedCashier.toLowerCase().includes(query.trim().toLowerCase())) {
+                  setSelectedCashier("");
+                }
+              }}
+              placeholder="Search by cashier name"
+            />
+            <label htmlFor="cashier-sales-select">Select cashier</label>
+            <select
+              id="cashier-sales-select"
+              value={selectedCashier}
+              onChange={(event) => {
+                setSelectedCashier(event.target.value);
+                setCashierSearch("");
+              }}
+              disabled={cashierNames.length === 0}
+            >
+              <option value="">Choose a cashier</option>
+              {filteredCashierNames.map((cashier) => <option key={cashier} value={cashier}>{cashier}</option>)}
+            </select>
+            {cashierSearch && filteredCashierNames.length === 0 && <span className="cashier-search-empty">No cashiers match that search.</span>}
           </div>
-        )}
+        </div>
+        {cashierNames.length === 0 ? <p>No cashier sales yet.</p> : selectedCashier ? (
+          <div className="manager-card cashier-sales-summary-card">
+            <h3>{selectedCashier}</h3>
+            <div className="cashier-sales-summary-metrics">
+              <p>Transactions <strong>{selectedCashierSales.length}</strong></p>
+              <p>Net revenue <strong>{formatKsh(selectedCashierNet)}</strong></p>
+            </div>
+          </div>
+        ) : <p className="cashier-summary-prompt">Choose a cashier from the dropdown to view their sales summary.</p>}
       </section>
 
       <section className="manager-section">
