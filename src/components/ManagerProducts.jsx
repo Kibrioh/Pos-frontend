@@ -26,7 +26,9 @@ function ManagerProducts({
   const [productDetailsForm, setProductDetailsForm] = useState(null);
   const [detailsError, setDetailsError] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [productSuccess, setProductSuccess] = useState(null);
+  const [catalogueSuccess, setCatalogueSuccess] = useState("");
+  const [addProductSuccess, setAddProductSuccess] = useState("");
   const [thumbnailPreviewError, setThumbnailPreviewError] = useState(false);
 
   const [newProduct, setNewProduct] = useState({
@@ -80,6 +82,12 @@ function ManagerProducts({
     setProducts(await getProducts());
   };
 
+  const clearProductFeedback = () => {
+    setProductSuccess(null);
+    setCatalogueSuccess("");
+    setAddProductSuccess("");
+  };
+
   const updateStock = async (id, amount) => {
     const product = products.find((item) => item.id === id);
 
@@ -93,7 +101,7 @@ function ManagerProducts({
       return;
     }
 
-    setSuccessMessage("");
+    clearProductFeedback();
     try {
       const me = await apiFetch("/auth/me");
 
@@ -107,7 +115,7 @@ function ManagerProducts({
         }),
       });
 
-      setSuccessMessage("Product stock updated successfully.");
+      setProductSuccess({ productId: id, message: "Product stock updated successfully." });
       await reloadProducts();
     } catch (err) {
       window.alert(err.message);
@@ -133,10 +141,10 @@ function ManagerProducts({
       return;
     }
 
-    setSuccessMessage("");
+    clearProductFeedback();
     try {
       await deleteProductRequest(product.id);
-      setSuccessMessage("Product removed successfully.");
+      setCatalogueSuccess(`${product.title} removed successfully.`);
       await reloadProducts();
     } catch (err) {
       window.alert(err.message);
@@ -171,7 +179,7 @@ function ManagerProducts({
 
   const saveProductDetails = async (event, product) => {
     event.preventDefault();
-    setSuccessMessage("");
+    clearProductFeedback();
     if (!productDetailsForm?.title.trim() || !productDetailsForm.category_id) {
       setDetailsError("Enter a product name and choose a category.");
       return;
@@ -191,7 +199,7 @@ function ManagerProducts({
           category_id: Number(productDetailsForm.category_id),
         }),
       });
-      setSuccessMessage("Product details updated successfully.");
+      setProductSuccess({ productId: product.id, message: "Product details updated successfully." });
       setEditingDetailsId(null);
       setProductDetailsForm(null);
       await reloadProducts();
@@ -209,7 +217,7 @@ function ManagerProducts({
       return;
     }
 
-    setSuccessMessage("");
+    clearProductFeedback();
     try {
       await apiFetch(`/products/${id}`, {
         method: "PUT",
@@ -218,7 +226,7 @@ function ManagerProducts({
 
       setEditingId(null);
       setNewPrice("");
-      setSuccessMessage("Product price updated successfully.");
+      setProductSuccess({ productId: id, message: "Product price updated successfully." });
       await reloadProducts();
     } catch (err) {
       window.alert(err.message);
@@ -240,7 +248,7 @@ function ManagerProducts({
 
   const addProduct = async (e) => {
     e.preventDefault();
-    setSuccessMessage("");
+    clearProductFeedback();
 
     if (
       !newProduct.title.trim() ||
@@ -268,7 +276,7 @@ function ManagerProducts({
       });
 
       setCurrentPage(1);
-      setSuccessMessage("Product added successfully.");
+      setAddProductSuccess("Product added successfully.");
 
       setNewProduct({
         title: "",
@@ -322,8 +330,6 @@ function ManagerProducts({
           <span>Products</span>
         </div>
       </div>
-
-      {successMessage && <p className="form-success manager-product-success" role="status">{successMessage}</p>}
 
       <section className="manager-section">
         <div className="inventory-controls">
@@ -391,6 +397,7 @@ function ManagerProducts({
             </p>
           </div>
         </div>
+        {catalogueSuccess && <p className="form-success manager-product-success" role="status">{catalogueSuccess}</p>}
 
         {loading ? (
           <div className="empty-inventory" role="status">
@@ -544,6 +551,7 @@ function ManagerProducts({
                       Delete
                     </button>
                   </div>
+                  {productSuccess?.productId === product.id && <p className="form-success manager-product-card-success" role="status">{productSuccess.message}</p>}
 
                   {editingDetailsId === product.id ? (
                     <form
@@ -829,6 +837,7 @@ function ManagerProducts({
           >
             + Add Product
           </button>
+          {addProductSuccess && <p className="form-success manager-product-add-success" role="status">{addProductSuccess}</p>}
         </form>
       </section>
     </main>

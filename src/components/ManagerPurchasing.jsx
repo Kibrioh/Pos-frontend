@@ -14,7 +14,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
   const [error, setError] = useState("");
   const [supplierSuccess, setSupplierSuccess] = useState("");
   const [orderSuccess, setOrderSuccess] = useState("");
-  const [deliverySuccess, setDeliverySuccess] = useState("");
+  const [deliverySuccess, setDeliverySuccess] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const reload = async () => {
@@ -79,7 +79,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
   };
 
   const receiveOrder = async (order) => {
-    setDeliverySuccess("");
+    setDeliverySuccess(null);
     const items = order.items
       .map((item) => ({
         purchase_order_item_id: item.id,
@@ -98,7 +98,10 @@ function ManagerPurchasing({ products = [], setProducts }) {
         body: JSON.stringify({ items }),
       });
       setReceiveQuantities({});
-      setDeliverySuccess(`Delivery recorded for PO-${order.id} successfully.`);
+      setDeliverySuccess({
+        orderId: order.id,
+        message: `Delivery recorded for PO-${order.id} successfully.`,
+      });
       await reload();
     } catch (err) {
       setError(err.message);
@@ -122,18 +125,17 @@ function ManagerPurchasing({ products = [], setProducts }) {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Add Supplier</h3><p>Keep supplier contact details for future orders.</p></div></div>
-        {supplierSuccess && <p className="form-success" role="status">{supplierSuccess}</p>}
         <form className="purchasing-form" onSubmit={addSupplier}>
           <label>Supplier name<input value={supplierForm.name} onChange={(event) => setSupplierForm({ ...supplierForm, name: event.target.value })} required /></label>
           <label>Phone<input value={supplierForm.phone} onChange={(event) => setSupplierForm({ ...supplierForm, phone: event.target.value })} /></label>
           <label>Email<input type="email" value={supplierForm.email} onChange={(event) => setSupplierForm({ ...supplierForm, email: event.target.value })} /></label>
           <button className="manager-action-button manager-action-button--primary purchasing-form-submit" disabled={busy}>Save supplier</button>
         </form>
+        {supplierSuccess && <p className="form-success" role="status">{supplierSuccess}</p>}
       </section>
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Create Purchase Order</h3><p>Receive orders in full or in multiple deliveries.</p></div></div>
-        {orderSuccess && <p className="form-success" role="status">{orderSuccess}</p>}
         {suppliers.length === 0 ? <p>Add a supplier before creating an order.</p> : products.length === 0 ? <p>Add active products before creating an order.</p> : (
           <form className="purchasing-form" onSubmit={createOrder}>
             <label>Supplier<select value={orderForm.supplier_id} onChange={(event) => setOrderForm({ ...orderForm, supplier_id: event.target.value })} required><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
@@ -148,11 +150,11 @@ function ManagerPurchasing({ products = [], setProducts }) {
             <button className="manager-action-button manager-action-button--primary purchasing-form-submit" disabled={busy}>Create order</button>
           </form>
         )}
+        {orderSuccess && <p className="form-success" role="status">{orderSuccess}</p>}
       </section>
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Purchase Orders</h3><p>{orders.length} recent orders</p></div></div>
-        {deliverySuccess && <p className="form-success" role="status">{deliverySuccess}</p>}
         {orders.length === 0 ? <div className="empty-inventory"><p>No purchase orders yet.</p></div> : (
           <div className="purchase-order-list">
             {orders.map((order) => (
@@ -164,6 +166,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
                 <ul>{order.items.map((item) => <li key={item.id}><span>{item.product_title}</span><span>{item.received_quantity} / {item.quantity} received</span><strong>{formatKsh(toKsh(item.unit_cost))} each</strong>{item.received_quantity < item.quantity && <label className="receive-quantity">Delivered now<input type="number" min="0" max={item.quantity - item.received_quantity} step="1" value={receiveQuantities[item.id] || ""} onChange={(event) => setReceiveQuantities((current) => ({ ...current, [item.id]: event.target.value }))} /></label>}</li>)}</ul>
                 {order.note && <p className="purchase-order-note">{order.note}</p>}
                 {order.status !== "received" && order.status !== "cancelled" && <button className="manager-action-button manager-action-button--primary" type="button" disabled={busy} onClick={() => receiveOrder(order)}>Record delivery</button>}
+                {deliverySuccess?.orderId === order.id && <p className="form-success" role="status">{deliverySuccess.message}</p>}
               </article>
             ))}
           </div>

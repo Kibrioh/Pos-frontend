@@ -89,7 +89,6 @@ function ManagerCashiers() {
 
       <section className="manager-section">
         <h3>Register New Cashier</h3>
-        {successMessage && <p className="form-success" role="status">{successMessage}</p>}
 
         <form className="cashier-form" onSubmit={registerCashier}>
           <input
@@ -129,6 +128,7 @@ function ManagerCashiers() {
             {saving ? "Registering..." : "Register Cashier"}
           </button>
         </form>
+        {successMessage && <p className="form-success" role="status">{successMessage}</p>}
       </section>
 
       <section className="manager-section">

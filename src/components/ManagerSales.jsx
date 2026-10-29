@@ -21,10 +21,9 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   const [shiftId, setShiftId] = useState("");
   const [openShifts, setOpenShifts] = useState([]);
   const [saleSearch, setSaleSearch] = useState("");
-  const [cashierSearch, setCashierSearch] = useState("");
   const [selectedCashier, setSelectedCashier] = useState("");
   const [error, setError] = useState("");
-  const [returnSuccess, setReturnSuccess] = useState("");
+  const [returnSuccess, setReturnSuccess] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -49,10 +48,6 @@ function ManagerSales({ sales = [], onReturnCreated }) {
     () => [...new Set(sales.map((sale) => String(sale.cashier || "")).filter(Boolean))],
     [sales],
   );
-  const filteredCashierNames = useMemo(() => {
-    const query = cashierSearch.trim().toLowerCase();
-    return cashierNames.filter((cashier) => cashier.toLowerCase().includes(query));
-  }, [cashierNames, cashierSearch]);
   const selectedCashierSales = useMemo(
     () => sales.filter((sale) => sale.cashier === selectedCashier),
     [sales, selectedCashier],
@@ -82,7 +77,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
 
   const beginReturn = (sale) => {
     setReturnSaleId(sale.id);
-    setReturnSuccess("");
+    setReturnSuccess(null);
     setQuantities(Object.fromEntries(sale.items.map((item) => [item.saleItemId, ""])));
     setRestockItems(Object.fromEntries(sale.items.map((item) => [item.saleItemId, true])));
     setReason("");
@@ -111,7 +106,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
 
     setBusy(true);
     setError("");
-    setReturnSuccess("");
+    setReturnSuccess(null);
     try {
       await apiFetch(`/sales/${sale.id}/returns`, {
         method: "POST",
@@ -122,7 +117,10 @@ function ManagerSales({ sales = [], onReturnCreated }) {
           ...(refundMethod === "cash" ? { shift_id: Number(shiftId) } : {}),
         }),
       });
-      setReturnSuccess(`Return for Sale #${sale.id} recorded successfully.`);
+      setReturnSuccess({
+        saleId: sale.id,
+        message: `Return for Sale #${sale.id} recorded successfully.`,
+      });
       setReturnSaleId(null);
       onReturnCreated?.();
     } catch (err) {
@@ -145,36 +143,18 @@ function ManagerSales({ sales = [], onReturnCreated }) {
 
       <section className="manager-section">
         <div className="section-heading-row cashier-sales-heading">
-          <div><h3>Cashier Sales Summary</h3><p>Search for a cashier, then select them to view their totals.</p></div>
+          <div><h3>Cashier Sales Summary</h3><p>Select a cashier to view their sales totals.</p></div>
           <div className="cashier-sales-picker">
-            <label htmlFor="cashier-sales-search">Search cashiers</label>
-            <input
-              id="cashier-sales-search"
-              type="search"
-              value={cashierSearch}
-              onChange={(event) => {
-                const query = event.target.value;
-                setCashierSearch(query);
-                if (selectedCashier && !selectedCashier.toLowerCase().includes(query.trim().toLowerCase())) {
-                  setSelectedCashier("");
-                }
-              }}
-              placeholder="Search by cashier name"
-            />
             <label htmlFor="cashier-sales-select">Select cashier</label>
             <select
               id="cashier-sales-select"
               value={selectedCashier}
-              onChange={(event) => {
-                setSelectedCashier(event.target.value);
-                setCashierSearch("");
-              }}
+              onChange={(event) => setSelectedCashier(event.target.value)}
               disabled={cashierNames.length === 0}
             >
               <option value="">Choose a cashier</option>
-              {filteredCashierNames.map((cashier) => <option key={cashier} value={cashier}>{cashier}</option>)}
+              {cashierNames.map((cashier) => <option key={cashier} value={cashier}>{cashier}</option>)}
             </select>
-            {cashierSearch && filteredCashierNames.length === 0 && <span className="cashier-search-empty">No cashiers match that search.</span>}
           </div>
         </div>
         {cashierNames.length === 0 ? <p>No cashier sales yet.</p> : selectedCashier ? (
@@ -202,7 +182,6 @@ function ManagerSales({ sales = [], onReturnCreated }) {
             />
           </label>
         </div>
-        {returnSuccess && <p className="form-success" role="status">{returnSuccess}</p>}
         {sales.length === 0 ? <p>No sales have been recorded yet.</p> : filteredSales.length === 0 ? (
           <div className="empty-inventory"><p>No sales match “{saleSearch}”. Try another sale ID, cashier, or product.</p></div>
         ) : (
@@ -216,6 +195,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
                     <div><h4>Sale #{sale.id}</h4><p>{sale.cashier} · {new Date(sale.completedAt).toLocaleString()}</p><p>{sale.itemCount} items · {sale.paymentMethod || "Payment method unavailable"}</p></div>
                     <div className="manager-sale-total"><strong>{formatKsh(sale.total)}</strong>{refunded > 0 && <span>{formatKsh(refunded)} refunded</span>}</div>
                   </div>
+                  {returnSuccess?.saleId === sale.id && <p className="form-success" role="status">{returnSuccess.message}</p>}
                   <details className="manager-sale-items-disclosure">
                     <summary>Items · {sale.itemCount}</summary>
                     <ul className="manager-sale-items">{sale.items.map((item) => <li key={item.saleItemId}><span>{item.title} × {item.quantity}</span><strong>{formatKsh(item.price * item.quantity)}</strong></li>)}</ul>

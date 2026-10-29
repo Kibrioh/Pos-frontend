@@ -211,7 +211,6 @@
   font-weight: 650;
 }
 
-.cashier-sales-picker input,
 .cashier-sales-picker select {
   box-sizing: border-box;
   width: 100%;
@@ -225,15 +224,9 @@
   font-size: 14px;
 }
 
-.cashier-sales-picker input:focus,
 .cashier-sales-picker select:focus {
   border-color: #7f9b82;
   outline: 3px solid rgb(78 118 94 / 15%);
-}
-
-.cashier-search-empty {
-  color: #778177;
-  font-size: 12px;
 }
 
 .manager-sales-page .cashier-sales-summary-card {
@@ -350,6 +343,16 @@
 }
 
 .manager-product-success {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.manager-product-card-success {
+  margin: 10px 0 0;
+}
+
+.manager-product-add-success {
+  grid-column: 1 / -1;
   margin-top: 0;
 }
 
