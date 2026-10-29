@@ -20,8 +20,10 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   const [refundMethod, setRefundMethod] = useState("cash");
   const [shiftId, setShiftId] = useState("");
   const [openShifts, setOpenShifts] = useState([]);
-  const [saleSearch, setSaleSearch] = useState("");
   const [selectedCashier, setSelectedCashier] = useState("");
+  const [saleIdFilter, setSaleIdFilter] = useState("");
+  const [cashierFilter, setCashierFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [error, setError] = useState("");
   const [returnSuccess, setReturnSuccess] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +50,16 @@ function ManagerSales({ sales = [], onReturnCreated }) {
     () => [...new Set(sales.map((sale) => String(sale.cashier || "")).filter(Boolean))],
     [sales],
   );
+  const saleIds = useMemo(
+    () => [...new Set(sales.map((sale) => String(sale.id)))].sort((left, right) => Number(right) - Number(left)),
+    [sales],
+  );
+  const productCategories = useMemo(
+    () => [...new Set(sales.flatMap((sale) => (sale.items || [])
+      .map((item) => String(item.category || "").trim())
+      .filter(Boolean)))].sort((left, right) => left.localeCompare(right)),
+    [sales],
+  );
   const selectedCashierSales = useMemo(
     () => sales.filter((sale) => sale.cashier === selectedCashier),
     [sales, selectedCashier],
@@ -61,19 +73,13 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   }, 0), [selectedCashierSales]);
 
   const filteredSales = useMemo(() => {
-    const query = saleSearch.trim().toLowerCase();
-    if (!query) return sales;
-
-    return sales.filter((sale) => [
-      sale.id,
-      `Sale #${sale.id}`,
-      sale.cashier,
-      sale.paymentMethod,
-      sale.completedAt,
-      sale.completedAt ? new Date(sale.completedAt).toLocaleString() : "",
-      ...(sale.items || []).map((item) => item.title),
-    ].some((value) => String(value || "").toLowerCase().includes(query)));
-  }, [sales, saleSearch]);
+    return sales.filter((sale) => {
+      if (saleIdFilter && String(sale.id) !== saleIdFilter) return false;
+      if (cashierFilter && sale.cashier !== cashierFilter) return false;
+      if (categoryFilter && !(sale.items || []).some((item) => item.category === categoryFilter)) return false;
+      return true;
+    });
+  }, [sales, saleIdFilter, cashierFilter, categoryFilter]);
 
   const beginReturn = (sale) => {
     setReturnSaleId(sale.id);
@@ -171,19 +177,34 @@ function ManagerSales({ sales = [], onReturnCreated }) {
       <section className="manager-section">
         <div className="section-heading-row manager-sales-list-heading">
           <div><h3>Completed Sales</h3><p>Returns are linked to the original sale and cannot exceed the purchased quantity.</p></div>
-          <label className="manager-search manager-sales-search" htmlFor="manager-sale-search">
-            <span>Search sales</span>
-            <input
-              id="manager-sale-search"
-              type="search"
-              value={saleSearch}
-              onChange={(event) => setSaleSearch(event.target.value)}
-              placeholder="Sale ID, cashier, or product"
-            />
-          </label>
         </div>
+        {sales.length > 0 && (
+          <div className="manager-sales-filters" role="group" aria-label="Filter completed sales">
+            <label>
+              <span>Sale ID</span>
+              <select value={saleIdFilter} onChange={(event) => setSaleIdFilter(event.target.value)}>
+                <option value="">All sale IDs</option>
+                {saleIds.map((saleId) => <option key={saleId} value={saleId}>Sale #{saleId}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Cashier</span>
+              <select value={cashierFilter} onChange={(event) => setCashierFilter(event.target.value)}>
+                <option value="">All cashiers</option>
+                {cashierNames.map((cashier) => <option key={cashier} value={cashier}>{cashier}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Product category</span>
+              <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                <option value="">All product categories</option>
+                {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
         {sales.length === 0 ? <p>No sales have been recorded yet.</p> : filteredSales.length === 0 ? (
-          <div className="empty-inventory"><p>No sales match “{saleSearch}”. Try another sale ID, cashier, or product.</p></div>
+          <div className="empty-inventory"><p>No sales match the selected filters.</p></div>
         ) : (
           <div className="manager-sales-list">
             {filteredSales.slice().reverse().map((sale) => {

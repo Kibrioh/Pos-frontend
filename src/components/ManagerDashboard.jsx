@@ -249,6 +249,55 @@ function ActivityBars({ rows, label, isHour = false }) {
   );
 }
 
+function BestSellingProductsChart({ rows }) {
+  const products = rows.slice(0, 8);
+  const maximum = Math.max(...products.map((product) => Number(product.units_sold || 0)), 1);
+
+  return (
+    <div className="performance-horizontal-bars" role="img" aria-label="Best-selling products by units sold">
+      {products.map((product) => {
+        const units = Number(product.units_sold || 0);
+        return (
+          <div className="performance-horizontal-bar-row" key={product.product_id}>
+            <span className="performance-horizontal-bar-label" title={product.product_title}>{product.product_title}</span>
+            <div className="performance-horizontal-bar-track" aria-hidden="true">
+              <span style={{ width: `${Math.max((units / maximum) * 100, 2)}%` }} />
+            </div>
+            <strong>{units.toLocaleString("en-KE")}</strong>
+          </div>
+        );
+      })}
+      <span className="performance-chart-caption">Units sold after returns</span>
+    </div>
+  );
+}
+
+function CategoryProfitChart({ rows }) {
+  const categories = rows.slice(0, 8);
+  const maximum = Math.max(...categories.map((category) => Math.max(toKsh(category.gross_profit), 0)), 1);
+
+  return (
+    <div className="performance-vertical-chart" role="img" aria-label="Gross profit by product category">
+      <div className="performance-vertical-bars">
+        {categories.map((category) => {
+          const profit = Math.max(toKsh(category.gross_profit), 0);
+          const hasCost = Number(category.cost_coverage_rate || 0) > 0;
+          return (
+            <div className="performance-vertical-bar-column" key={category.category}>
+              <strong title={hasCost ? formatKsh(profit) : "No recorded item costs"}>{hasCost ? compactKsh(profit) : "—"}</strong>
+              <div className="performance-vertical-bar-track" aria-hidden="true">
+                <span style={{ height: `${hasCost ? Math.max((profit / maximum) * 100, 2) : 0}%` }} />
+              </div>
+              <span title={category.category}>{category.category}</span>
+            </div>
+          );
+        })}
+      </div>
+      <span className="performance-chart-caption">Gross profit · KSh</span>
+    </div>
+  );
+}
+
 function ManagerDashboard() {
   const [range, setRange] = useState(30);
   const [data, setData] = useState(null);
@@ -408,6 +457,26 @@ function ManagerDashboard() {
                   : <RevenueChart series={series} />}
             </section>
 
+            <section className="performance-panel performance-panel--activity">
+              <div className="performance-panel-heading">
+                <div><h2>When sales happen</h2><p>Net sales by Nairobi weekday and hour</p></div>
+              </div>
+              {loading ? <p className="performance-empty">Loading sales timing…</p>
+                : !currentHasSales ? <p className="performance-empty">No sales to compare in this period.</p>
+                  : (
+                    <>
+                      <div className="performance-peak-stats">
+                        <div><span>Strongest weekday</span><strong>{peakWeekday?.label || "—"}</strong></div>
+                        <div><span>Strongest hour</span><strong>{peakHour ? `${String(peakHour.hour).padStart(2, "0")}:00–${String((peakHour.hour + 1) % 24).padStart(2, "0")}:00` : "—"}</strong></div>
+                      </div>
+                      <h3 className="performance-chart-subtitle">By weekday</h3>
+                      <ActivityBars rows={weekdaySales} label="Net sales" />
+                      <h3 className="performance-chart-subtitle">By hour · 24-hour clock</h3>
+                      <ActivityBars rows={hourlySales} label="Net sales" isHour />
+                    </>
+                  )}
+            </section>
+
             <section className="performance-panel performance-panel--payments">
               <div className="performance-panel-heading">
                 <div><h2>Payment methods</h2><p>Net sales share and transaction count</p></div>
@@ -424,21 +493,7 @@ function ManagerDashboard() {
               </div>
               {loading ? <p className="performance-empty">Loading product sales…</p>
                 : !bestSellers.length ? <p className="performance-empty">No product sales in this period.</p>
-                  : (
-                    <div className="performance-table-scroll">
-                      <table className="performance-table">
-                        <thead><tr><th>Product</th><th>Units</th><th>Net sales</th><th>Gross profit</th></tr></thead>
-                        <tbody>{bestSellers.slice(0, 8).map((product) => (
-                          <tr key={product.product_id}>
-                            <th scope="row" title={product.product_title}>{product.product_title}</th>
-                            <td>{Number(product.units_sold || 0).toLocaleString("en-KE")}</td>
-                            <td>{formatKsh(toKsh(product.net_revenue))}</td>
-                            <td>{Number(product.cost_coverage_rate || 0) <= 0 ? "—" : formatKsh(toKsh(product.gross_profit))}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>
-                    </div>
-                  )}
+                  : <BestSellingProductsChart rows={bestSellers} />}
               {!loading && profitProducts.length > 0 && (
                 <>
                   <h3 className="performance-chart-subtitle">Highest gross profit contribution</h3>
@@ -468,21 +523,7 @@ function ManagerDashboard() {
               </div>
               {loading ? <p className="performance-empty">Loading category margin…</p>
                 : !profitByCategory.length ? <p className="performance-empty">No category sales in this period.</p>
-                  : (
-                    <div className="performance-table-scroll">
-                      <table className="performance-table">
-                        <thead><tr><th>Category</th><th>Net sales</th><th>Gross profit</th><th>Margin</th></tr></thead>
-                        <tbody>{profitByCategory.slice(0, 8).map((category) => (
-                          <tr key={category.category}>
-                            <th scope="row">{category.category}</th>
-                            <td>{formatKsh(toKsh(category.net_revenue))}</td>
-                            <td>{Number(category.cost_coverage_rate || 0) <= 0 ? "—" : formatKsh(toKsh(category.gross_profit))}</td>
-                            <td>{Number(category.cost_coverage_rate || 0) <= 0 || category.margin_rate == null ? "—" : `${Number(category.margin_rate).toFixed(1)}%`}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>
-                    </div>
-                  )}
+                  : <CategoryProfitChart rows={profitByCategory} />}
               {!loading && current?.cost_coverage_rate != null && Number(current.costed_units || 0) > 0 && (
                 <p className="performance-data-note">Cost coverage: {Number(current.cost_coverage_rate).toFixed(1)}% of sold units.</p>
               )}
@@ -511,26 +552,6 @@ function ManagerDashboard() {
                         ))}</tbody>
                       </table>
                     </div>
-                  )}
-            </section>
-
-            <section className="performance-panel performance-panel--activity">
-              <div className="performance-panel-heading">
-                <div><h2>When sales happen</h2><p>Net sales by Nairobi weekday and hour</p></div>
-              </div>
-              {loading ? <p className="performance-empty">Loading sales timing…</p>
-                : !currentHasSales ? <p className="performance-empty">No sales to compare in this period.</p>
-                  : (
-                    <>
-                      <div className="performance-peak-stats">
-                        <div><span>Strongest weekday</span><strong>{peakWeekday?.label || "—"}</strong></div>
-                        <div><span>Strongest hour</span><strong>{peakHour ? `${String(peakHour.hour).padStart(2, "0")}:00–${String((peakHour.hour + 1) % 24).padStart(2, "0")}:00` : "—"}</strong></div>
-                      </div>
-                      <h3 className="performance-chart-subtitle">By weekday</h3>
-                      <ActivityBars rows={weekdaySales} label="Net sales" />
-                      <h3 className="performance-chart-subtitle">By hour · 24-hour clock</h3>
-                      <ActivityBars rows={hourlySales} label="Net sales" isHour />
-                    </>
                   )}
             </section>
 

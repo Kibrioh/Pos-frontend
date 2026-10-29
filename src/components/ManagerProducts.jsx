@@ -18,7 +18,7 @@ function ManagerProducts({
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12);
 
   const [editingId, setEditingId] = useState(null);
   const [newPrice, setNewPrice] = useState("");

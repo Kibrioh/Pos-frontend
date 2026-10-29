@@ -579,6 +579,7 @@ function App() {
       items: serverSale.items.map((item) => ({
         id: item.product_id,
         title: item.product_title,
+        category: item.category || "",
         price: Number(item.unit_price),
         quantity: item.quantity,
         lineTotalKsh: toKsh(item.subtotal),
@@ -696,6 +697,7 @@ function App() {
                 id: item.product_id,
                 saleItemId: item.id,
                 title: item.product_title,
+                category: item.category || "",
                 price: toKsh(item.unit_price),
                 quantity: item.quantity,
               })),
