@@ -364,9 +364,17 @@
   font-size: 13px;
 }
 
-.audit-filter-control {
-  width: min(100%, 360px);
+.audit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.audit-filter-control {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .audit-event-category {

@@ -21,13 +21,13 @@ const AUDIT_LABELS = {
 
 const AUDIT_CATEGORIES = [
   { id: "all", label: "All activity" },
-  { id: "sales", label: "Sales" },
-  { id: "returns", label: "Returns" },
-  { id: "products", label: "Products" },
   { id: "inventory", label: "Inventory" },
-  { id: "purchasing", label: "Purchasing" },
-  { id: "shifts", label: "Shifts & cash" },
   { id: "other", label: "Other" },
+  { id: "products", label: "Products" },
+  { id: "purchasing", label: "Purchasing" },
+  { id: "returns", label: "Returns" },
+  { id: "sales", label: "Sales" },
+  { id: "shifts", label: "Shifts & cash" },
 ];
 
 function getAuditCategory(event) {
@@ -48,6 +48,12 @@ function formatAuditLabel(key) {
     AUDIT_LABELS[key]
     || key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
   );
+}
+
+function formatAuditOption(value) {
+  return String(value)
+    .replaceAll(/[._]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatAuditValue(value, key = "", userNames = {}) {
@@ -101,6 +107,9 @@ function ManagerAudit() {
   const [userNames, setUserNames] = useState({});
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeActor, setActiveActor] = useState("");
+  const [activeAction, setActiveAction] = useState("");
+  const [activeEntityType, setActiveEntityType] = useState("");
 
   useEffect(() => {
     apiFetch("/audit?limit=200")
@@ -114,11 +123,25 @@ function ManagerAudit() {
     return counts;
   }, { all: events.length }), [events]);
 
-  const filteredEvents = useMemo(() => (
-    activeCategory === "all"
-      ? events
-      : events.filter((event) => getAuditCategory(event) === activeCategory)
-  ), [events, activeCategory]);
+  const actorNames = useMemo(() => [...new Set(events
+    .map((event) => String(event.actor_name || "").trim())
+    .filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right)), [events]);
+  const auditActions = useMemo(() => [...new Set(events
+    .map((event) => String(event.action || "").trim())
+    .filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right)), [events]);
+  const entityTypes = useMemo(() => [...new Set(events
+    .map((event) => String(event.entity_type || "").trim())
+    .filter(Boolean))]
+    .sort((left, right) => left.localeCompare(right)), [events]);
+
+  const filteredEvents = useMemo(() => events.filter((event) => (
+    (activeCategory === "all" || getAuditCategory(event) === activeCategory)
+    && (!activeActor || event.actor_name === activeActor)
+    && (!activeAction || event.action === activeAction)
+    && (!activeEntityType || event.entity_type === activeEntityType)
+  )), [events, activeCategory, activeActor, activeAction, activeEntityType]);
 
   useEffect(() => {
     apiFetch("/auth/users")
@@ -143,23 +166,46 @@ function ManagerAudit() {
         <div className="inventory-summary"><strong>{events.length}</strong><span>Recent events</span></div>
       </div>
       <section className="manager-section">
-        <label className="manager-filter audit-filter-control" htmlFor="audit-category-filter">
-          Filter audit activity
-          <select
-            id="audit-category-filter"
-            value={activeCategory}
-            onChange={(event) => setActiveCategory(event.target.value)}
-          >
-            {AUDIT_CATEGORIES.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.label} ({categoryCounts[category.id] || 0})
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="audit-filter-grid">
+          <label className="manager-filter audit-filter-control" htmlFor="audit-category-filter">
+            Event category
+            <select
+              id="audit-category-filter"
+              value={activeCategory}
+              onChange={(event) => setActiveCategory(event.target.value)}
+            >
+              {AUDIT_CATEGORIES.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.label} ({categoryCounts[category.id] || 0})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="manager-filter audit-filter-control" htmlFor="audit-actor-filter">
+            Performed by
+            <select id="audit-actor-filter" value={activeActor} onChange={(event) => setActiveActor(event.target.value)}>
+              <option value="">All names</option>
+              {actorNames.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+          <label className="manager-filter audit-filter-control" htmlFor="audit-action-filter">
+            Action
+            <select id="audit-action-filter" value={activeAction} onChange={(event) => setActiveAction(event.target.value)}>
+              <option value="">All actions</option>
+              {auditActions.map((action) => <option key={action} value={action}>{formatAuditOption(action)}</option>)}
+            </select>
+          </label>
+          <label className="manager-filter audit-filter-control" htmlFor="audit-entity-filter">
+            Record type
+            <select id="audit-entity-filter" value={activeEntityType} onChange={(event) => setActiveEntityType(event.target.value)}>
+              <option value="">All record types</option>
+              {entityTypes.map((entityType) => <option key={entityType} value={entityType}>{formatAuditOption(entityType)}</option>)}
+            </select>
+          </label>
+        </div>
         {error ? <p className="form-error" role="alert">{error}</p> : events.length === 0 ? <div className="empty-inventory"><p>No audit activity yet.</p></div> : (
           <div className="audit-event-list">
-            {filteredEvents.length === 0 ? <div className="empty-inventory"><p>No {AUDIT_CATEGORIES.find((category) => category.id === activeCategory)?.label.toLowerCase()} activity found.</p></div> : filteredEvents.map((event) => {
+            {filteredEvents.length === 0 ? <div className="empty-inventory"><p>No audit events match the selected filters.</p></div> : filteredEvents.map((event) => {
               const category = AUDIT_CATEGORIES.find((entry) => entry.id === getAuditCategory(event));
               return (
               <article className="audit-event" key={event.id}>
