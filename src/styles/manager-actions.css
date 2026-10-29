@@ -190,6 +190,190 @@
   margin-top: 14px;
 }
 
+.manager-sales-page .manager-section {
+  padding: 20px;
+}
+
+.manager-sales-page .cashier-sales-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.manager-sales-page .cashier-sales-summary .manager-card {
+  min-width: 0;
+  padding: 13px 15px;
+  border: 1px solid #e6ebe4;
+  box-shadow: none;
+}
+
+.manager-sales-page .cashier-sales-summary .manager-card h3 {
+  margin: 0 0 8px;
+  color: #344438;
+  font-size: 14px;
+}
+
+.manager-sales-page .cashier-sales-summary .manager-card p {
+  margin: 4px 0 0;
+  color: #707b70;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.manager-sales-page .cashier-sales-summary .manager-card p strong {
+  color: #2f4033;
+  font-size: 13px;
+}
+
+.manager-sales-list-heading {
+  align-items: end;
+  gap: 20px;
+}
+
+.manager-sales-search {
+  width: min(100%, 340px);
+  flex: 0 1 340px;
+}
+
+.manager-sales-search > span {
+  color: #435247;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.manager-sales-page .manager-sale-card {
+  padding: 14px 16px;
+  border-radius: 11px;
+  box-shadow: 0 3px 10px rgb(26 37 29 / 4%);
+}
+
+.manager-sales-page .manager-sale-heading {
+  align-items: center;
+  gap: 12px;
+}
+
+.manager-sales-page .manager-sale-heading h4 {
+  font-size: 15px;
+}
+
+.manager-sales-page .manager-sale-heading p {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.manager-sales-page .manager-sale-total strong {
+  font-size: 16px;
+}
+
+.manager-sales-page .manager-sale-total span {
+  font-size: 12px;
+}
+
+.manager-sale-items-disclosure {
+  margin-top: 8px;
+  color: #59665a;
+  font-size: 12px;
+}
+
+.manager-sale-items-disclosure summary,
+.sale-return-history summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.manager-sales-page .manager-sale-items {
+  gap: 5px;
+  margin: 7px 0 3px;
+  padding: 8px 0;
+}
+
+.manager-sales-page .manager-sale-items li {
+  font-size: 12px;
+}
+
+.manager-sales-page .manager-sale-card > .manager-action-button {
+  min-height: 36px;
+  margin-top: 9px;
+  padding: 7px 12px;
+  font-size: 13px;
+}
+
+.manager-product-success {
+  margin-top: 0;
+}
+
+.audit-category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.audit-category-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #dce4da;
+  border-radius: 999px;
+  background: #fff;
+  color: #526052;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.audit-category-filter span {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  place-items: center;
+  border-radius: 999px;
+  background: #f0f3ef;
+  color: #617061;
+  font-size: 11px;
+}
+
+.audit-category-filter:hover {
+  border-color: #aabbaa;
+  background: #f8faf7;
+}
+
+.audit-category-filter.is-active {
+  border-color: #31583d;
+  background: #31583d;
+  color: #fff;
+}
+
+.audit-category-filter.is-active span {
+  background: rgb(255 255 255 / 18%);
+  color: #fff;
+}
+
+.audit-event-category {
+  display: inline-flex;
+  margin-top: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f0f3ef;
+  color: #526052;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.audit-event-category--sales { background: #e9f2e9; color: #31613d; }
+.audit-event-category--returns { background: #fff1e5; color: #925725; }
+.audit-event-category--products { background: #edf0fb; color: #485b92; }
+.audit-event-category--inventory { background: #eef5e7; color: #537139; }
+.audit-event-category--purchasing { background: #f3edf8; color: #75528a; }
+.audit-event-category--shifts { background: #e8f3f4; color: #3c6870; }
+
 @media (max-width: 560px) {
   .product-details-edit-grid {
     grid-template-columns: 1fr;
@@ -201,6 +385,24 @@
 
   .manager-purchasing-page .purchasing-form-submit {
     width: 100%;
+  }
+
+  .manager-sales-page .manager-section {
+    padding: 15px;
+  }
+
+  .manager-sales-list-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manager-sales-search {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .manager-sales-page .manager-sale-card {
+    padding: 13px;
   }
 }
 

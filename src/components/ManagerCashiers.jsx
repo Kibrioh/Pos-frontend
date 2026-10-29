@@ -13,6 +13,7 @@ function ManagerCashiers() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -32,6 +33,7 @@ function ManagerCashiers() {
 
   const registerCashier = async (e) => {
     e.preventDefault();
+    setSuccessMessage("");
 
     const name = newName.trim();
     const username = newUsername.trim();
@@ -65,6 +67,7 @@ function ManagerCashiers() {
       setNewUsername("");
       setNewPassword("");
       setError("");
+      setSuccessMessage("Cashier registered successfully.");
       await loadCashiers();
     } catch (err) {
       const details = err.data && err.data.errors;
@@ -86,6 +89,7 @@ function ManagerCashiers() {
 
       <section className="manager-section">
         <h3>Register New Cashier</h3>
+        {successMessage && <p className="form-success" role="status">{successMessage}</p>}
 
         <form className="cashier-form" onSubmit={registerCashier}>
           <input

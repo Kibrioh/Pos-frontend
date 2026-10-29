@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
 import { formatPrice, toKsh } from "../utils/formatPrice";
+import "../styles/manager-actions.css";
 
 const AUDIT_LABELS = {
   opening_cash: "Opening float",
@@ -17,6 +18,30 @@ const AUDIT_LABELS = {
   delta: "Stock quantity change",
   quantity_change: "Stock quantity change",
 };
+
+const AUDIT_CATEGORIES = [
+  { id: "all", label: "All activity" },
+  { id: "sales", label: "Sales" },
+  { id: "returns", label: "Returns" },
+  { id: "products", label: "Products" },
+  { id: "inventory", label: "Inventory" },
+  { id: "purchasing", label: "Purchasing" },
+  { id: "shifts", label: "Shifts & cash" },
+  { id: "other", label: "Other" },
+];
+
+function getAuditCategory(event) {
+  const action = String(event.action || "").toLowerCase();
+  const entity = String(event.entity_type || "").toLowerCase();
+
+  if (action.includes("return") || entity.includes("return")) return "returns";
+  if (action.startsWith("sale.") || entity === "sale") return "sales";
+  if (action.includes("supplier") || action.includes("purchase") || entity.includes("supplier") || entity.includes("purchase")) return "purchasing";
+  if (action.startsWith("shift.") || action.includes("cash") || entity.includes("shift") || entity.includes("cash")) return "shifts";
+  if (action.startsWith("product.") || entity === "product") return "products";
+  if (action.startsWith("stock.") || action.startsWith("restock.") || entity === "stock" || entity === "restock") return "inventory";
+  return "other";
+}
 
 function formatAuditLabel(key) {
   return (
@@ -75,12 +100,25 @@ function ManagerAudit() {
   const [events, setEvents] = useState([]);
   const [userNames, setUserNames] = useState({});
   const [error, setError] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
 
   useEffect(() => {
     apiFetch("/audit?limit=200")
       .then((data) => setEvents(Array.isArray(data) ? data : []))
       .catch((err) => setError(err.message));
   }, []);
+
+  const categoryCounts = useMemo(() => events.reduce((counts, event) => {
+    const category = getAuditCategory(event);
+    counts[category] = (counts[category] || 0) + 1;
+    return counts;
+  }, { all: events.length }), [events]);
+
+  const filteredEvents = useMemo(() => (
+    activeCategory === "all"
+      ? events
+      : events.filter((event) => getAuditCategory(event) === activeCategory)
+  ), [events, activeCategory]);
 
   useEffect(() => {
     apiFetch("/auth/users")
@@ -105,14 +143,30 @@ function ManagerAudit() {
         <div className="inventory-summary"><strong>{events.length}</strong><span>Recent events</span></div>
       </div>
       <section className="manager-section">
+        <div className="audit-category-filters" role="group" aria-label="Filter audit activity by category">
+          {AUDIT_CATEGORIES.map((category) => (
+            <button
+              className={`audit-category-filter${activeCategory === category.id ? " is-active" : ""}`}
+              key={category.id}
+              type="button"
+              aria-pressed={activeCategory === category.id}
+              onClick={() => setActiveCategory(category.id)}
+            >
+              {category.label}<span>{categoryCounts[category.id] || 0}</span>
+            </button>
+          ))}
+        </div>
         {error ? <p className="form-error" role="alert">{error}</p> : events.length === 0 ? <div className="empty-inventory"><p>No audit activity yet.</p></div> : (
           <div className="audit-event-list">
-            {events.map((event) => (
+            {filteredEvents.length === 0 ? <div className="empty-inventory"><p>No {AUDIT_CATEGORIES.find((category) => category.id === activeCategory)?.label.toLowerCase()} activity found.</p></div> : filteredEvents.map((event) => {
+              const category = AUDIT_CATEGORIES.find((entry) => entry.id === getAuditCategory(event));
+              return (
               <article className="audit-event" key={event.id}>
                 <div className="audit-event-heading">
                   <div><strong>{event.action.replaceAll(".", " ")}</strong><span>{event.entity_type} #{event.entity_id ?? "—"}</span></div>
                   <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString()}</time>
                 </div>
+                <span className={`audit-event-category audit-event-category--${category.id}`}>{category.label}</span>
                 <p>By {event.actor_name}</p>
                 <details>
                   <summary>Details</summary>
@@ -130,7 +184,8 @@ function ManagerAudit() {
                   )}
                 </details>
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

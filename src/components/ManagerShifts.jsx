@@ -23,12 +23,14 @@ function ManagerShifts() {
   const [movementError, setMovementError] = useState("");
   const [movementSuccess, setMovementSuccess] = useState("");
   const [error, setError] = useState("");
+  const [assignSuccess, setAssignSuccess] = useState("");
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [closingShiftId, setClosingShiftId] = useState(null);
   const [closingCash, setClosingCash] = useState("");
   const [closingBusy, setClosingBusy] = useState(false);
   const [closingError, setClosingError] = useState("");
+  const [closingSuccess, setClosingSuccess] = useState("");
 
   const reload = useCallback(async () => {
     try {
@@ -81,6 +83,7 @@ function ManagerShifts() {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setAssignSuccess("");
     try {
       await apiFetch("/shifts/assign", {
         method: "POST",
@@ -91,6 +94,7 @@ function ManagerShifts() {
       });
       setCashierId("");
       setOpeningFloat("");
+      setAssignSuccess("Opening float assigned and cashier shift opened successfully.");
       await reload();
     } catch (err) {
       setError(err.message);
@@ -129,6 +133,7 @@ function ManagerShifts() {
     event.preventDefault();
     setClosingBusy(true);
     setClosingError("");
+    setClosingSuccess("");
     try {
       await apiFetch(`/shifts/${shift.id}/close`, {
         method: "POST",
@@ -136,6 +141,7 @@ function ManagerShifts() {
       });
       setClosingShiftId(null);
       setClosingCash("");
+      setClosingSuccess(`Shift for ${shift.cashier || `User ${shift.user_id}`} closed successfully.`);
       await reload();
     } catch (requestError) {
       setClosingError(requestError.message || "Could not close this shift.");
@@ -185,6 +191,7 @@ function ManagerShifts() {
           </button>
         </form>
         {error && <p className="form-error" role="alert">{error}</p>}
+        {assignSuccess && <p className="form-success" role="status">{assignSuccess}</p>}
         {cashiers.length === 0 && !error && <p>No cashiers are registered yet.</p>}
       </section>
 
@@ -246,6 +253,7 @@ function ManagerShifts() {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Open and recent shifts</h3><p>Reconcile and close open tills here; review completed cash counts below.</p></div><button className="button-secondary" type="button" onClick={reload} disabled={busy || closingBusy}>Refresh shifts</button></div>
+        {closingSuccess && <p className="form-success" role="status">{closingSuccess}</p>}
         {loadError ? <p className="form-error" role="alert">{loadError}</p> : shifts.length === 0 ? <p>No shifts have been opened yet.</p> : (
           <div className="shift-list">
             {shifts.map((shift) => (

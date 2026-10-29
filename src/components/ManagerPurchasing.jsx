@@ -12,6 +12,9 @@ function ManagerPurchasing({ products = [], setProducts }) {
   const [orderItems, setOrderItems] = useState([{ product_id: "", quantity: "", unit_cost: "" }]);
   const [receiveQuantities, setReceiveQuantities] = useState({});
   const [error, setError] = useState("");
+  const [supplierSuccess, setSupplierSuccess] = useState("");
+  const [orderSuccess, setOrderSuccess] = useState("");
+  const [deliverySuccess, setDeliverySuccess] = useState("");
   const [busy, setBusy] = useState(false);
 
   const reload = async () => {
@@ -33,9 +36,11 @@ function ManagerPurchasing({ products = [], setProducts }) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setSupplierSuccess("");
     try {
       await apiFetch("/suppliers", { method: "POST", body: JSON.stringify(supplierForm) });
       setSupplierForm({ name: "", phone: "", email: "" });
+      setSupplierSuccess("Supplier added successfully.");
       await reload();
     } catch (err) {
       setError(err.message);
@@ -48,8 +53,9 @@ function ManagerPurchasing({ products = [], setProducts }) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setOrderSuccess("");
     try {
-      await apiFetch("/purchase-orders", {
+      const createdOrder = await apiFetch("/purchase-orders", {
         method: "POST",
         body: JSON.stringify({
           supplier_id: Number(orderForm.supplier_id),
@@ -63,6 +69,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
       });
       setOrderForm((current) => ({ ...current, note: "" }));
       setOrderItems([{ product_id: "", quantity: "", unit_cost: "" }]);
+      setOrderSuccess(`Purchase order PO-${createdOrder.id} created successfully.`);
       await reload();
     } catch (err) {
       setError(err.message);
@@ -72,6 +79,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
   };
 
   const receiveOrder = async (order) => {
+    setDeliverySuccess("");
     const items = order.items
       .map((item) => ({
         purchase_order_item_id: item.id,
@@ -90,6 +98,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
         body: JSON.stringify({ items }),
       });
       setReceiveQuantities({});
+      setDeliverySuccess(`Delivery recorded for PO-${order.id} successfully.`);
       await reload();
     } catch (err) {
       setError(err.message);
@@ -113,6 +122,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Add Supplier</h3><p>Keep supplier contact details for future orders.</p></div></div>
+        {supplierSuccess && <p className="form-success" role="status">{supplierSuccess}</p>}
         <form className="purchasing-form" onSubmit={addSupplier}>
           <label>Supplier name<input value={supplierForm.name} onChange={(event) => setSupplierForm({ ...supplierForm, name: event.target.value })} required /></label>
           <label>Phone<input value={supplierForm.phone} onChange={(event) => setSupplierForm({ ...supplierForm, phone: event.target.value })} /></label>
@@ -123,6 +133,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Create Purchase Order</h3><p>Receive orders in full or in multiple deliveries.</p></div></div>
+        {orderSuccess && <p className="form-success" role="status">{orderSuccess}</p>}
         {suppliers.length === 0 ? <p>Add a supplier before creating an order.</p> : products.length === 0 ? <p>Add active products before creating an order.</p> : (
           <form className="purchasing-form" onSubmit={createOrder}>
             <label>Supplier<select value={orderForm.supplier_id} onChange={(event) => setOrderForm({ ...orderForm, supplier_id: event.target.value })} required><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
@@ -141,6 +152,7 @@ function ManagerPurchasing({ products = [], setProducts }) {
 
       <section className="manager-section">
         <div className="section-heading-row"><div><h3>Purchase Orders</h3><p>{orders.length} recent orders</p></div></div>
+        {deliverySuccess && <p className="form-success" role="status">{deliverySuccess}</p>}
         {orders.length === 0 ? <div className="empty-inventory"><p>No purchase orders yet.</p></div> : (
           <div className="purchase-order-list">
             {orders.map((order) => (

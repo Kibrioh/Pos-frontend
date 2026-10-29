@@ -26,6 +26,7 @@ function ManagerProducts({
   const [productDetailsForm, setProductDetailsForm] = useState(null);
   const [detailsError, setDetailsError] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [thumbnailPreviewError, setThumbnailPreviewError] = useState(false);
 
   const [newProduct, setNewProduct] = useState({
@@ -92,6 +93,7 @@ function ManagerProducts({
       return;
     }
 
+    setSuccessMessage("");
     try {
       const me = await apiFetch("/auth/me");
 
@@ -105,6 +107,7 @@ function ManagerProducts({
         }),
       });
 
+      setSuccessMessage("Product stock updated successfully.");
       await reloadProducts();
     } catch (err) {
       window.alert(err.message);
@@ -130,8 +133,10 @@ function ManagerProducts({
       return;
     }
 
+    setSuccessMessage("");
     try {
       await deleteProductRequest(product.id);
+      setSuccessMessage("Product removed successfully.");
       await reloadProducts();
     } catch (err) {
       window.alert(err.message);
@@ -166,6 +171,7 @@ function ManagerProducts({
 
   const saveProductDetails = async (event, product) => {
     event.preventDefault();
+    setSuccessMessage("");
     if (!productDetailsForm?.title.trim() || !productDetailsForm.category_id) {
       setDetailsError("Enter a product name and choose a category.");
       return;
@@ -185,9 +191,10 @@ function ManagerProducts({
           category_id: Number(productDetailsForm.category_id),
         }),
       });
-      await reloadProducts();
+      setSuccessMessage("Product details updated successfully.");
       setEditingDetailsId(null);
       setProductDetailsForm(null);
+      await reloadProducts();
     } catch (err) {
       setDetailsError(err.message);
     } finally {
@@ -202,15 +209,17 @@ function ManagerProducts({
       return;
     }
 
+    setSuccessMessage("");
     try {
       await apiFetch(`/products/${id}`, {
         method: "PUT",
         body: JSON.stringify({ price: priceKsh / USD_TO_KSH }),
       });
 
-      await reloadProducts();
       setEditingId(null);
       setNewPrice("");
+      setSuccessMessage("Product price updated successfully.");
+      await reloadProducts();
     } catch (err) {
       window.alert(err.message);
     }
@@ -231,6 +240,7 @@ function ManagerProducts({
 
   const addProduct = async (e) => {
     e.preventDefault();
+    setSuccessMessage("");
 
     if (
       !newProduct.title.trim() ||
@@ -257,8 +267,8 @@ function ManagerProducts({
         }),
       });
 
-      await reloadProducts();
       setCurrentPage(1);
+      setSuccessMessage("Product added successfully.");
 
       setNewProduct({
         title: "",
@@ -271,6 +281,7 @@ function ManagerProducts({
         stock: "",
       });
       setThumbnailPreviewError(false);
+      await reloadProducts();
     } catch (err) {
       window.alert(err.message);
     }
@@ -311,6 +322,8 @@ function ManagerProducts({
           <span>Products</span>
         </div>
       </div>
+
+      {successMessage && <p className="form-success manager-product-success" role="status">{successMessage}</p>}
 
       <section className="manager-section">
         <div className="inventory-controls">

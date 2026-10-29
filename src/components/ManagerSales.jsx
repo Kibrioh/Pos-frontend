@@ -20,7 +20,9 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   const [refundMethod, setRefundMethod] = useState("cash");
   const [shiftId, setShiftId] = useState("");
   const [openShifts, setOpenShifts] = useState([]);
+  const [saleSearch, setSaleSearch] = useState("");
   const [error, setError] = useState("");
+  const [returnSuccess, setReturnSuccess] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -42,9 +44,24 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   }, 0), [sales]);
 
   const cashierNames = [...new Set(sales.map((sale) => sale.cashier))];
+  const filteredSales = useMemo(() => {
+    const query = saleSearch.trim().toLowerCase();
+    if (!query) return sales;
+
+    return sales.filter((sale) => [
+      sale.id,
+      `Sale #${sale.id}`,
+      sale.cashier,
+      sale.paymentMethod,
+      sale.completedAt,
+      sale.completedAt ? new Date(sale.completedAt).toLocaleString() : "",
+      ...(sale.items || []).map((item) => item.title),
+    ].some((value) => String(value || "").toLowerCase().includes(query)));
+  }, [sales, saleSearch]);
 
   const beginReturn = (sale) => {
     setReturnSaleId(sale.id);
+    setReturnSuccess("");
     setQuantities(Object.fromEntries(sale.items.map((item) => [item.saleItemId, ""])));
     setRestockItems(Object.fromEntries(sale.items.map((item) => [item.saleItemId, true])));
     setReason("");
@@ -73,6 +90,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
 
     setBusy(true);
     setError("");
+    setReturnSuccess("");
     try {
       await apiFetch(`/sales/${sale.id}/returns`, {
         method: "POST",
@@ -83,6 +101,7 @@ function ManagerSales({ sales = [], onReturnCreated }) {
           ...(refundMethod === "cash" ? { shift_id: Number(shiftId) } : {}),
         }),
       });
+      setReturnSuccess(`Return for Sale #${sale.id} recorded successfully.`);
       setReturnSaleId(null);
       onReturnCreated?.();
     } catch (err) {
@@ -120,10 +139,25 @@ function ManagerSales({ sales = [], onReturnCreated }) {
       </section>
 
       <section className="manager-section">
-        <div className="section-heading-row"><div><h3>Completed Sales</h3><p>Returns are linked to the original sale and cannot exceed the purchased quantity.</p></div></div>
-        {sales.length === 0 ? <p>No sales have been recorded yet.</p> : (
+        <div className="section-heading-row manager-sales-list-heading">
+          <div><h3>Completed Sales</h3><p>Returns are linked to the original sale and cannot exceed the purchased quantity.</p></div>
+          <label className="manager-search manager-sales-search" htmlFor="manager-sale-search">
+            <span>Search sales</span>
+            <input
+              id="manager-sale-search"
+              type="search"
+              value={saleSearch}
+              onChange={(event) => setSaleSearch(event.target.value)}
+              placeholder="Sale ID, cashier, or product"
+            />
+          </label>
+        </div>
+        {returnSuccess && <p className="form-success" role="status">{returnSuccess}</p>}
+        {sales.length === 0 ? <p>No sales have been recorded yet.</p> : filteredSales.length === 0 ? (
+          <div className="empty-inventory"><p>No sales match “{saleSearch}”. Try another sale ID, cashier, or product.</p></div>
+        ) : (
           <div className="manager-sales-list">
-            {sales.slice().reverse().map((sale) => {
+            {filteredSales.slice().reverse().map((sale) => {
               const refunded = (sale.returns || []).reduce((sum, record) => sum + Number(record.refund_total || 0), 0);
               const hasReturnableItems = sale.items.some((item) => returnedQuantity(sale, item.saleItemId) < item.quantity);
               return (
@@ -132,7 +166,10 @@ function ManagerSales({ sales = [], onReturnCreated }) {
                     <div><h4>Sale #{sale.id}</h4><p>{sale.cashier} · {new Date(sale.completedAt).toLocaleString()}</p><p>{sale.itemCount} items · {sale.paymentMethod || "Payment method unavailable"}</p></div>
                     <div className="manager-sale-total"><strong>{formatKsh(sale.total)}</strong>{refunded > 0 && <span>{formatKsh(refunded)} refunded</span>}</div>
                   </div>
-                  <ul className="manager-sale-items">{sale.items.map((item) => <li key={item.saleItemId}><span>{item.title} × {item.quantity}</span><strong>{formatKsh(item.price * item.quantity)}</strong></li>)}</ul>
+                  <details className="manager-sale-items-disclosure">
+                    <summary>Items · {sale.itemCount}</summary>
+                    <ul className="manager-sale-items">{sale.items.map((item) => <li key={item.saleItemId}><span>{item.title} × {item.quantity}</span><strong>{formatKsh(item.price * item.quantity)}</strong></li>)}</ul>
+                  </details>
 
                   {(sale.returns || []).length > 0 && <details className="sale-return-history"><summary>{sale.returns.length} return{sale.returns.length === 1 ? "" : "s"} recorded</summary>{sale.returns.map((record) => <p key={record.id}>{formatKsh(Number(record.refund_total))} via {record.refund_method} · {record.reason} · {new Date(record.created_at).toLocaleString()}</p>)}</details>}
 
