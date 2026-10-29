@@ -48,11 +48,12 @@ function ManagerSales({ sales = [], onReturnCreated }) {
   }, 0), [sales]);
 
   const cashierNames = useMemo(
-    () => [...new Set(sales.map((sale) => String(sale.cashier || "")).filter(Boolean))],
+    () => [...new Set(sales.map((sale) => String(sale.cashier || "")).filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right)),
     [sales],
   );
   const saleIds = useMemo(
-    () => [...new Set(sales.map((sale) => String(sale.id)))].sort((left, right) => Number(right) - Number(left)),
+    () => [...new Set(sales.map((sale) => String(sale.id)))].sort((left, right) => Number(left) - Number(right)),
     [sales],
   );
   const productCategories = useMemo(

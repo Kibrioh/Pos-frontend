@@ -3,7 +3,7 @@ import {
   deleteProduct as deleteProductRequest,
   getProducts,
 } from "../api/products";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPrice, toKsh, USD_TO_KSH } from "../utils/formatPrice";
 import ProductPagination from "./ProductPagination";
 import ManagerSuccessPopup from "./ManagerSuccessPopup";
@@ -20,6 +20,7 @@ function ManagerProducts({
   const [category, setCategory] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const catalogueRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
   const [newPrice, setNewPrice] = useState("");
@@ -70,6 +71,13 @@ function ManagerProducts({
     const firstIndex = (visiblePage - 1) * pageSize;
     return filteredProducts.slice(firstIndex, firstIndex + pageSize);
   }, [filteredProducts, visiblePage, pageSize]);
+
+  const changeProductPage = (page) => {
+    setCurrentPage(page);
+    window.requestAnimationFrame(() => {
+      catalogueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -381,7 +389,7 @@ function ManagerProducts({
         </div>
       </section>
 
-      <section className="manager-section">
+      <section className="manager-section" ref={catalogueRef}>
         <div className="section-heading-row">
           <div>
             <h3>Product Catalogue</h3>
@@ -662,7 +670,7 @@ function ManagerProducts({
             currentPage={visiblePage}
             pageSize={pageSize}
             totalItems={filteredProducts.length}
-            onPageChange={setCurrentPage}
+            onPageChange={changeProductPage}
             onPageSizeChange={(size) => {
               setPageSize(size);
               setCurrentPage(1);
